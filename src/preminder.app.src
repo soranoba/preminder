@@ -1,0 +1,10 @@
+{application,preminder,
+             [{description,""},
+              {vsn,git},
+              {registered,[]},
+              {mod,{preminder_app, []}},
+              {applications,[kernel,stdlib,hackney,websocket_client,jsone]},
+              {maintainers,["Hinagiku Soranoba"]},
+              {licenses,["MIT"]},
+              {links,[{"GitHub","https://github.com/soranoba/preminder"}]},
+              {env,[]}]}.
