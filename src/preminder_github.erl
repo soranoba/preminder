@@ -12,8 +12,9 @@
          endpoint/0,
          token/0,
          url/2,
-         real_name/1,
-         pr/3
+         mail/1,
+         pr/3,
+         fetch_mails/3
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -47,16 +48,16 @@ token() ->
 %% @doc Generate a url from method and query parameters.
 -spec url(string(), [{string(), string()}]) -> binary().
 url(GithubMethod, QueryParams) ->
-    QP = string:join([K ++ "=" ++ V || {K, V} <- QueryParams], "&"),
+    QP = string:join([K ++ "=" ++ preminder_util:uri_encode(V) || {K, V} <- QueryParams], "&"),
     iolist_to_binary([endpoint(), GithubMethod, ?IIF(QP =:= [], QP, ["?", QP])]).
 
-%% @doc get the real name.
--spec real_name(binary()) -> {ok, binary()} | {error, Reason :: term()}.
-real_name(LoginId) ->
+%% @doc get the mail.
+-spec mail(binary()) -> {ok, binary()} | {error, Reason :: term()}.
+mail(LoginId) ->
     Url = url("users/" ++ binary_to_list(LoginId), [{"token", token()}]),
     case preminder_util:request(Url) of
-        {ok, #{<<"name">> := Name}} ->
-            {ok, Name};
+        {ok, #{<<"email">> := Mail}} ->
+            {ok, Mail};
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
         {error, Reason} ->
@@ -73,6 +74,24 @@ pr(Owner, Repos, Number) ->
             {ok, Body, ?IIF(ClosedAt =:= null andalso MergedAt =:= null, open, closed)};
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+%% @doc fetch mails
+-spec fetch_mails(binary(), binary(), binary()) -> {ok, [{Mail :: binary(), LoginId :: binary()}]} | {error, Reason :: term()}.
+fetch_mails(Owner, Repos, Number) ->
+    Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/pulls/", Number/binary, "/commits">>),
+              [{"token", token()}]),
+    case preminder_util:request(Url) of
+        {ok, #{<<"message">> := Message}} ->
+            {error, Message};
+        {ok, List} ->
+            Ret = lists:map(fun(#{<<"commit">> := #{<<"author">> := #{<<"email">> := Mail}},
+                                  <<"author">> := #{<<"login">> := LoginId}}) ->
+                                    {Mail, LoginId}
+                            end, List),
+            {ok, lists:ukeysort(1, Ret)};
         {error, Reason} ->
             {error, Reason}
     end.

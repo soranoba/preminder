@@ -20,10 +20,6 @@
 
 %% @private
 start(_StartType, _StartArgs) ->
-    Token = os:getenv("Token"),
-    Path  = os:getenv("Path"),
-    ok = application:set_env(?APP, token, Token),
-    ok = application:set_env(?APP, dets_path, Path),
     preminder_sup:start_link().
 
 stop(_State) ->

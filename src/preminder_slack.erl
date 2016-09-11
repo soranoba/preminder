@@ -11,7 +11,7 @@
 -export([
          url/2,
          token/0,
-         real_name/1,
+         user_info/1,
          post/2,
          slack_id/0,
          rtm_start/0
@@ -32,7 +32,7 @@
 %% @doc Generate a url from slack method and request parameters.
 -spec url(string(), [{string(), string()}]) -> binary().
 url(SlackMethod, QueryParams) ->
-    QP = string:join([K ++ "=" ++ V || {K, V} <- QueryParams], "&"),
+    QP = string:join([K ++ "=" ++ preminder_util:uri_encode(V) || {K, V} <- QueryParams], "&"),
     iolist_to_binary([?ENDPOINT, SlackMethod, ?IIF(QP =:= [], QP, ["?", QP])]).
 
 %% @doc get the token.
@@ -47,15 +47,17 @@ token() ->
             error(slack_token_is_not_found, [])
     end.
 
-%% @doc get the real name.
--spec real_name(SlackId :: binary()) -> {ok, binary()} | {error, Reason :: term()}.
-real_name(SlackId) ->
+%% @doc get the user name and email.
+-spec user_info(SlackId :: binary()) -> {ok, {Mail :: binary(), SlackName :: binary()}} | {error, Reason :: term()}.
+user_info(SlackId) ->
     Url = url("users.info", [{"token", token()}, {"user", binary_to_list(SlackId)}]),
     case preminder_util:request(Url) of
-        {ok, #{<<"user">> := #{<<"real_name">> := RealName}}} ->
-            {ok, RealName};
+        {ok, #{<<"user">> := #{<<"name">> := SlackName, <<"is_bot">> := false, <<"profile">> := #{<<"email">> := Mail}}}} ->
+            {ok, {Mail, SlackName}};
         {ok, #{<<"error">> := Reason}} ->
             {error, Reason};
+        {ok, #{<<"user">> := #{<<"is_bot">> := true}}} ->
+            {error, this_id_is_bot};
         {error, Reason} ->
             {error, Reason}
     end.
@@ -65,7 +67,8 @@ real_name(SlackId) ->
 post(ChannelId, Msg) ->
     Url = url("chat.postMessage", [{"token", token()},
                                    {"channel", binary_to_list(ChannelId)},
-                                   {"text", binary_to_list(Msg)}]),
+                                   {"text", binary_to_list(Msg)},
+                                   {"as_user", "true"}]),
     case preminder_util:request(Url) of
         {ok, #{<<"error">> := Reason}} ->
             {error, Reason};

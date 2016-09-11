@@ -40,7 +40,8 @@ start_link() ->
 init(_) ->
     Children = [
                 ?CHILD(preminder_cache, []),
-                ?CHILD(preminder_storage, []),
+                ?CHILD(preminder_user, []),
+                ?CHILD(preminder_pr, []),
                 ?CHILD(preminder_register, [])
                ],
     {ok, {{one_for_all, 5, 10}, Children}}.

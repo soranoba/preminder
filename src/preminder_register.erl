@@ -46,6 +46,8 @@ websocket_handle({text, Msg}, _, State) ->
     io:format("[handle] ~p~n", [Msg]),
     ok = preminder_msg_task:do(Msg),
     {ok, State};
+websocket_handle({ping, _Msg}, _, State) ->
+    {reply, {pong, <<>>}, State};
 websocket_handle(Msg, _, State) ->
     io:format("[handle] ~p~n", [Msg]),
     {ok, State}.

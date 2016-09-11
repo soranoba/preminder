@@ -9,3 +9,9 @@
 
 -define(IF(Cond, T), Cond andalso T).
 -define(NOT(Cond, F), NOT orelse F).
+
+-define(PRIV(Path), preminder_util:priv(Path)).
+%% return the priv/`Path'
+
+-define(PR_DETS, pr_dets_path).
+-define(USER_DETS, user_dets_path).

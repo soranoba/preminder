@@ -6,6 +6,7 @@
 -behaviour(gen_server).
 
 -include("preminder_internal.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
@@ -13,16 +14,24 @@
 -export([
          start_link/0,
 
-         real_to_github/1,
-         real_to_slack/1,
+         mail_to_github/1,
+         mail_to_slack_id/1,
+         mail_to_slack_name/1,
 
-         github_to_real/1,
-         github_to_slack/1,
+         github_to_mail/1,
+         github_to_slack_id/1,
+         github_to_slack_name/1,
 
-         slack_to_real/1,
-         slack_to_github/1,
+         slack_id_to_mail/1,
+         slack_id_to_github/1,
+         slack_id_to_slack_name/1,
 
-         update/2
+         slack_name_to_mail/1,
+         slack_name_to_github/1,
+         slack_name_to_slack_id/1,
+
+         update/2,
+         insert_github/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -35,9 +44,10 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -record(?MODULE,
         {
-          real   :: undefined | binary(),
-          github :: undefined | binary(),
-          slack  :: undefined | binary()
+          mail       :: undefined | binary(),
+          github     :: undefined | binary(),
+          slack_id   :: undefined | binary(),
+          slack_name :: undefined | binary()
         }).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -49,55 +59,93 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-%% @doc real name to github name.
--spec real_to_github(binary()) -> {ok, binary()} | error.
-real_to_github(RealName) ->
-    select(RealName, #?MODULE.real, #?MODULE.github).
+%% @doc mail to github name.
+-spec mail_to_github(binary()) -> {ok, binary()} | error.
+mail_to_github(Mail) ->
+    select(Mail, #?MODULE.mail, #?MODULE.github).
 
-%% @doc real name to slack name.
--spec real_to_slack(binary()) -> {ok, binary()} | error.
-real_to_slack(RealName) ->
-    select(RealName, #?MODULE.real, #?MODULE.slack).
+%% @doc mail to slack id.
+-spec mail_to_slack_id(binary()) -> {ok, binary()} | error.
+mail_to_slack_id(Mail) ->
+    select(Mail, #?MODULE.mail, #?MODULE.slack_id).
 
-%% @doc github name to real name.
--spec github_to_real(binary()) -> {ok, binary()} | error.
-github_to_real(GithubName) ->
-    select(GithubName, #?MODULE.github, #?MODULE.real).
+%% @doc mail to slack name.
+-spec mail_to_slack_name(binary()) -> {ok, binary()} | error.
+mail_to_slack_name(Mail) ->
+    select(Mail, #?MODULE.mail, #?MODULE.slack_name).
+
+%% @doc github name to mail.
+-spec github_to_mail(binary()) -> {ok, binary()} | error.
+github_to_mail(GithubName) ->
+    select(GithubName, #?MODULE.github, #?MODULE.mail).
+
+%% @doc github name to slack id.
+-spec github_to_slack_id(binary()) -> {ok, binary()} | error.
+github_to_slack_id(GithubName) ->
+    select(GithubName, #?MODULE.github, #?MODULE.slack_id).
 
 %% @doc github name to slack name.
--spec github_to_slack(binary()) -> {ok, binary()} | error.
-github_to_slack(GithubName) ->
-    select(GithubName, #?MODULE.github, #?MODULE.slack).
+-spec github_to_slack_name(binary()) -> {ok, binary()} | error.
+github_to_slack_name(GithubName) ->
+    select(GithubName, #?MODULE.github, #?MODULE.slack_name).
 
-%% @doc slack name to real name.
--spec slack_to_real(binary()) -> {ok, binary()} | error.
-slack_to_real(SlackName) ->
-    select(SlackName, #?MODULE.slack, #?MODULE.real).
+%% @doc slack id to mail.
+-spec slack_id_to_mail(binary()) -> {ok, binary()} | error.
+slack_id_to_mail(SlackId) ->
+    select(SlackId, #?MODULE.slack_id, #?MODULE.mail).
+
+%% @doc slack id to github name.
+-spec slack_id_to_github(binary()) -> {ok, binary()} | error.
+slack_id_to_github(SlackId) ->
+    select(SlackId, #?MODULE.slack_id, #?MODULE.github).
+
+%% @doc slack id to slack name.
+-spec slack_id_to_slack_name(binary()) -> {ok, binary()} | error.
+slack_id_to_slack_name(SlackId) ->
+    select(SlackId, #?MODULE.slack_id, #?MODULE.slack_name).
+
+%% @doc slack name to mail.
+-spec slack_name_to_mail(binary()) -> {ok, binary()} | error.
+slack_name_to_mail(SlackName) ->
+    select(SlackName, #?MODULE.slack_name, #?MODULE.mail).
 
 %% @doc slack name to github name.
--spec slack_to_github(binary()) -> {ok, binary()} | error.
-slack_to_github(SlackName) ->
-    select(SlackName, #?MODULE.slack, #?MODULE.github).
+-spec slack_name_to_github(binary()) -> {ok, binary()} | error.
+slack_name_to_github(SlackName) ->
+    select(SlackName, #?MODULE.slack_name, #?MODULE.github).
 
-%% @doc Get the real name from `Name' that type is `NameType', and update cache.
+%% @doc slack name to slack id.
+-spec slack_name_to_slack_id(binary()) -> {ok, binary()} | error.
+slack_name_to_slack_id(SlackName) ->
+    select(SlackName, #?MODULE.slack_name, #?MODULE.slack_id).
+
+%% @doc Get the mail name from `Name' that type is `NameType', and update cache.
 -spec update(NameType, binary()) -> boolean() when
       NameType :: pos_integer() | github | slack.
 update(Type, Name) when Type =:= #?MODULE.github; Type =:= github ->
-    case preminder_github:real_name(Name) of
-        {ok, RealName} ->
-            gen_server:call(?MODULE, {update, #?MODULE{real = RealName, github = Name}});
+    case preminder_github:mail(Name) of
+        {ok, Mail} ->
+            gen_server:call(?MODULE, {update, #?MODULE{mail = Mail, github = Name}});
         {error, Reason} ->
-            _ = error_logger:warning_msg("[github api] ~p", [Reason]),
+            _ = error_logger:warning_msg("[github api] mail(~p) -> ~p~n", [Name, Reason]),
             false
     end;
-update(Type, Name) when Type =:= #?MODULE.slack; Type =:= slack ->
-    case preminder_slack:real_name(Name) of
-        {ok, RealName} ->
-            gen_server:call(?MODULE, {update, #?MODULE{real = RealName, slack = Name}});
+update(Type, SlackId) when Type =:= #?MODULE.slack_id; Type =:= slack ->
+    case preminder_slack:user_info(SlackId) of
+        {ok, {Mail, SlackName}} ->
+            gen_server:call(?MODULE, {update, #?MODULE{mail = Mail, slack_id = SlackId, slack_name = SlackName}});
         {error, Reason} ->
-            _ = error_logger:warning_msg("[slack api] ~p", [Reason]),
+            _ = error_logger:warning_msg("[slack api] mail(~p) -> ~p~n", [SlackId, Reason]),
             false
-    end.
+    end;
+update(_, _) ->
+    false.
+
+-spec insert_github([{Mail :: binary(), GithubLoginId :: binary()}]) -> ok.
+insert_github(List) ->
+    lists:foreach(fun({Mail, LoginId}) ->
+                          gen_server:call(?MODULE, {update, #?MODULE{mail = Mail, github = LoginId}})
+                  end, List).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'gen_server' Callback Functions
@@ -105,17 +153,25 @@ update(Type, Name) when Type =:= #?MODULE.slack; Type =:= slack ->
 
 %% @private
 init(_) ->
-    ?MODULE = ets:new(?MODULE, [named_table, protected, {keypos, #?MODULE.real}, {read_concurrency, true}]),
-    {ok, ?MODULE}.
+    case application:get_env(?APP, ?USER_DETS) of
+        undefined      -> {stop, {?USER_DETS, not_found}};
+        {ok, DetsFile} ->
+            case dets:open_file(?MODULE, [{file, DetsFile}, {keypos, #?MODULE.mail}]) of
+                {ok, ?MODULE}   -> {ok, ?MODULE};
+                {error, Reason} -> {stop, Reason}
+            end
+    end.
 
 %% @private
-handle_call({update, #?MODULE{real = RealName} = Object}, _From, State) when is_binary(RealName) ->
-    Old = case ets:lookup(?MODULE, RealName) of
+handle_call({update, #?MODULE{mail = Mail} = Object}, _From, State) when is_binary(Mail) ->
+    Old = case dets:lookup(?MODULE, Mail) of
               []     -> #?MODULE{};
               [Old0] -> Old0
           end,
-    true = ets:insert(?MODULE, merge_record(Object, Old)),
-    {reply, true, State};
+    case dets:insert(?MODULE, merge_record(Object, Old)) of
+        ok              -> {reply, true, State};
+        {error, Reason} -> {stop, Reason, false, State}
+    end;
 handle_call({update, _}, _, State) ->
     {reply, false, State};
 handle_call(_, _, State) ->
@@ -147,11 +203,13 @@ terminate(_, _) ->
 -spec select(binary(), pos_integer(), pos_integer()) -> {ok, binary()} | error.
 select(Match, MatchPos, GetPos) ->
     Ms = ets:fun2ms(fun(Record) when element(MatchPos, Record) =:= Match -> element(GetPos, Record) end),
-    case ets:select(?MODULE, Ms) of
+    case dets:select(?MODULE, Ms) of
         [Name] when is_binary(Name) -> {ok, Name};
         _ ->
-            _ = update(MatchPos, Match),
-            error
+            case update(MatchPos, Match) andalso dets:select(?MODULE, Ms) of
+                [Name] when is_binary(Name) -> {ok, Name};
+                _                           -> error
+            end
     end.
 
 %% @doc It override to new value from old value, if new value is not `undefined'.

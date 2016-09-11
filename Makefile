@@ -24,7 +24,7 @@ edoc:
 	@./rebar3 as dev edoc
 
 start:
-	@./rebar3 as dev shell
+	@./rebar3 as dev shell --config sys.config --sname preminder
 
 dialyze:
 	@./rebar3 dialyzer
