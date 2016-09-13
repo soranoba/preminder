@@ -23,8 +23,15 @@ eunit:
 edoc:
 	@./rebar3 as dev edoc
 
+release:
+	@./rebar3 as prod release
+
 start:
-	@./rebar3 as dev shell --config sys.config --sname preminder
+	@if [ ! -f sys.config ]; then \
+		>&2 echo "sys.config is not found. please see sys.config.template"; \
+		exit 1; \
+	fi
+	@./rebar3 as dev shell --sname preminder
 
 dialyze:
 	@./rebar3 dialyzer
