@@ -8,7 +8,7 @@
 %% immediate if
 
 -define(IF(Cond, T), Cond andalso T).
--define(NOT(Cond, F), NOT orelse F).
+-define(NOT(Cond, F), Cond orelse F).
 
 -define(PRIV(Path), preminder_util:priv(Path)).
 %% return the priv/`Path'

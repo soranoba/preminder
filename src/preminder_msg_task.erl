@@ -14,7 +14,10 @@
 
 -export([
          task_github_url/1,
-         task_mention/3
+         task_list/2,
+         task_register/3,
+         task_user/2,
+         task_help/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -24,7 +27,14 @@
 %% @doc To perform the tasks corresponding to the slack message.
 -spec do(binary()) -> ok.
 do(Msg) ->
-    _ = spawn_link(fun() -> catch do_1(jsone:decode(Msg)) end),
+    _ = spawn_link(fun() ->
+                           try
+                               do_1(jsone:decode(Msg))
+                           catch
+                               Class:Reason ->
+                                   error_logger:error_msg("~p:~p~n~p", [Class, Reason, erlang:get_stacktrace()])
+                           end
+                   end),
     ok.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -35,11 +45,13 @@ do(Msg) ->
 do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
-    SlackId = preminder_slack:slack_id(),
     match_and_run(Text,
                   [
-                   {<<"https?://[^\s]*(pull|issue)/[0-9]*">>, {?MODULE, task_github_url, []}},
-                   {<<"<@", SlackId/binary, ">">>,            {?MODULE, task_mention,    [Channel, Text]}}
+                   {<<"https?://[^\s]*(pull|issue)/[0-9]*">>,         {?MODULE, task_github_url, ['$$']}},
+                   {{mention, <<"list(.*)">>},                        {?MODULE, task_list,       ['$1', Channel]}},
+                   {{mention, <<"register\s+([^\s]*)\s+([^\s]*)">>},  {?MODULE, task_register,   ['$1', '$2', Channel]}},
+                   {{mention, <<"user\s+([^\s]*)">>},                 {?MODULE, task_user,       ['$1', Channel]}},
+                   {{mention, <<"help">>},                            {?MODULE, task_help,       [Channel]}}
                   ]);
 do_1(#{<<"type">> := <<"presence_change">>, <<"presence">> := <<"active">>, <<"user">> := SlackId}) ->
     _ = preminder_user:slack_id_to_mail(SlackId),
@@ -49,54 +61,69 @@ do_1(_) ->
 
 match_and_run(_, []) ->
     ok;
-match_and_run(Text, [{Pattern, {M, F, Args}} | Rest]) ->
-    Matches = case re:run(Text, Pattern, [global]) of
-                  {match, Matches0} -> Matches0;
-                  nomatch           -> []
-              end,
-    io:format("[match] ~p~n", [Matches]),
-    lists:foreach(fun([{Start, Len} | _]) ->
-                          try
-                              apply(M, F, [binary:part(Text, Start, Len) | Args])
-                          catch
-                              _:Reason ->
-                                  io:format("~p~n~p~n", [Reason, erlang:get_stacktrace()])
-                          end
-                  end, Matches),
+match_and_run(Text, [{{mention, Pattern}, {M, F, Args}} | Rest]) ->
+    SlackId = preminder_slack:slack_id(),
+    case matches(Text, <<"<@", SlackId/binary, "(\|[^>]*)?>">>) of
+        []            -> match_and_run(Text, Rest);
+        [[Mention|_] | _] ->
+            ok = match_and_run(binary:replace(Text, Mention, <<>>, [global]), [{Pattern, {M, F, Args}}]),
+            match_and_run(Text, Rest)
+    end;
+match_and_run(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
+    Matches = matches(Text, Pattern),
+    lists:foreach(
+      fun(Match) ->
+              try
+                  Args = lists:map(fun(Atom) when is_atom(Atom) ->
+                                           case atom_to_list(Atom) of
+                                               "$$"          -> lists:nth(1, Match);
+                                               [$$ | IntStr] -> lists:nth(list_to_integer(IntStr) + 1, Match);
+                                               _             -> Atom
+                                           end;
+                                      (Other) ->
+                                           Other
+                                   end, Args0),
+                  apply(M, F, Args)
+              catch
+                  _:Reason ->
+                      error_logger:error_msg("~p~n~p~n", [Reason, erlang:get_stacktrace()])
+              end
+      end, Matches),
     match_and_run(Text, Rest).
+
+-spec matches(binary(), binary()) -> [[binary()]].
+matches(Text, Pattern) ->
+    case re:run(Text, Pattern, [global]) of
+        {match, MatchesList} -> [[binary:part(Text, Start, Len) || {Start, Len} <- Matches] || Matches <- MatchesList];
+        nomatch              -> []
+    end.
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Task Functions
+%%----------------------------------------------------------------------------------------------------------------------
 
 -spec task_github_url(binary()) -> ok.
 task_github_url(GitHubUrl) ->
-    io:format("[find] ~s~n", [GitHubUrl]),
     [_, Host, Owner, Repos, _, Number] = binary:split(GitHubUrl, [<<"/">>, <<":">>], [global, trim_all]),
     ?IF(binary:match(preminder_github:endpoint(), Host) =:= nomatch, throw(return)),
 
     case preminder_github:pr(Owner, Repos, Number) of
         {ok, Body, open} ->
-            Matches = case re:run(Body, <<"(-|\\*)\s*\\[\s\\]\s@([^\s\\r\\n]*)\s*">>, [global]) of
-                          {match, Matches0} -> Matches0;
-                          nomatch           -> []
-                      end,
-            io:format("matches : ~p~n", [Matches]),
-            Mails = lists:foldl(fun([_, _, {Start, Len}], Acc) ->
-                                        Account = binary:part(Body, Start, Len),
-                                        case preminder_user:github_to_mail(Account) of
-                                            {ok, Mail} -> [Mail | Acc];
-                                            error      -> Acc
-                                        end
-                                end, [], Matches),
-            io:format("mail : ~p~n", [Mails]),
-            _ = case length(Mails) =/= length(Matches) of
-                    true ->
-                        case preminder_github:fetch_mails(Owner, Repos, Number) of
-                            {ok, GithubInfos} ->
-                                io:format("[github info] ~p~n", [GithubInfos]),
-                                _ = error_logger:info_msg("[search commit] ~p~n~p~n", [GithubInfos, preminder_user:insert_github(GithubInfos)]);
-                            {error, _}        -> ok
-                        end;
-                    false ->
-                        ok
-                end,
+            Accounts = [Account || [_, _, Account] <- matches(Body, <<"(-|\\*)\s*\\[\s\\]\s@([^\s\\r\\n]*)\s*">>)],
+            Mails = lists:filtermap(fun(Account) ->
+                                            case preminder_user:github_to_mail(Account) of
+                                                {ok, Mail} -> {true, Mail};
+                                                error      -> false
+                                            end
+                                    end, Accounts),
+            _ = ?NOT(length(Mails) =:= length(Accounts),
+                     case preminder_github:fetch_mails(Owner, Repos, Number) of
+                         {ok, GithubInfos} ->
+                             _ = preminder_user:insert_github(GithubInfos),
+                             _ = error_logger:info_msg("[search commit] ~p~n", [GithubInfos]);
+                         {error, _} ->
+                             ok
+                     end),
 
             _ = error_logger:info_msg("[recv github url] ~s -> ~p~n", [GitHubUrl, Mails]),
             preminder_pr:update(GitHubUrl, Mails);
@@ -104,19 +131,45 @@ task_github_url(GitHubUrl) ->
             ok
     end.
 
-task_mention(_, Channel, Text) ->
-    _ = error_logger:info_msg("[recv mention] ~s", [Text]),
-    case binary:match(Text, <<"list">>) of
-        nomatch      -> ok;
-        {Start, Len} ->
-            RestText = binary:part(Text, Start + Len, byte_size(Text) - (Start + Len)),
-            Users = binary:split(RestText, <<" ">>, [global]),
-            case lists:member(<<"all">>, Users) orelse Users =:= [] of
-                false ->
-                    Ret = preminder_pr:list(Users),
-                    preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list.mustache")), Ret));
-                true ->
-                    Ret = preminder_pr:list(),
-                    error_logger:info_msg("~p", [preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret))])
-            end
+task_list(Text, Channel) ->
+    Users = binary:split(Text, <<" ">>, [global, trim_all]),
+    case lists:member(<<"all">>, Users) orelse Users =:= [] of
+        true ->
+            Ret = preminder_pr:list(),
+            preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret));
+        false ->
+            Ret = preminder_pr:list(Users),
+            preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list.mustache")), Ret))
     end.
+
+task_register(SlackUser, GithubUser, Channel) ->
+    case preminder_user:slack_name_to_mail(SlackUser) of
+        {ok, Mail} ->
+            ok  = preminder_user:insert_github([{Mail, GithubUser}]),
+            task_user(SlackUser, Channel);
+        error ->
+            preminder_slack:post(Channel,
+                                 iolist_to_binary(["[ERROR] ", SlackUser, " isn't register in databases..."]))
+    end.
+
+task_user(SlackUser, Channel) ->
+    case preminder_user:slack_name_to_mail(SlackUser) of
+        {ok, Mail} ->
+            Ret = preminder_user:lookup(Mail),
+            preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("user.mustache")), Ret));
+        error ->
+            preminder_slack:post(Channel,
+                                 iolist_to_binary(["[ERROR]", SlackUser, " isn't register in databases..."]))
+    end.
+
+task_help(Channel) ->
+    Msg =
+        "help\n"
+        "       Show this help\n"
+        "register <SlackName> <GithubName>\n"
+        "       Manually register the user\n"
+        "user <SlackName>\n"
+        "       Show user information in DB\n"
+        "list (<SlackName> ...)\n"
+        "       Show the PR list that should be review by <SlackName>\n",
+    preminder_slack:post(Channel, iolist_to_binary(Msg)).

@@ -31,7 +31,8 @@
          slack_name_to_slack_id/1,
 
          update/2,
-         insert_github/1
+         insert_github/1,
+         lookup/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -146,6 +147,17 @@ insert_github(List) ->
     lists:foreach(fun({Mail, LoginId}) ->
                           gen_server:call(?MODULE, {update, #?MODULE{mail = Mail, github = LoginId}})
                   end, List).
+
+-spec lookup(binary()) -> map().
+lookup(Mail) ->
+    case dets:lookup(?MODULE, Mail) of
+        [] -> #{};
+        [#?MODULE{mail = Mail, github = Github, slack_id = SlackId, slack_name = SlackName}] ->
+            #{"mail"     => ?IIF(is_binary(Mail), Mail, ""),
+              "github"   => ?IIF(is_binary(Github), Github, ""),
+              "slack_id" => ?IIF(is_binary(SlackId), SlackId, ""),
+              "slack_name" => ?IIF(is_binary(SlackName), SlackName, "")}
+    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'gen_server' Callback Functions
