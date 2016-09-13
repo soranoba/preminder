@@ -202,13 +202,16 @@ terminate(_, _) ->
 %% If it is not found, it challenge to update, and return error.
 -spec select(binary(), pos_integer(), pos_integer()) -> {ok, binary()} | error.
 select(Match, MatchPos, GetPos) ->
-    Ms = ets:fun2ms(fun(Record) when element(MatchPos, Record) =:= Match -> element(GetPos, Record) end),
-    case dets:select(?MODULE, Ms) of
-        [Name] when is_binary(Name) -> {ok, Name};
+    Ms = ets:fun2ms(fun(Record) when element(MatchPos, Record) =:= Match ->
+                            {is_binary(element(#?MODULE.slack_id, Record)), element(GetPos, Record)}
+                    end),
+    case lists:reverse(lists:sort(dets:select(?MODULE, Ms))) of
+        [{_, Name} | _] when is_binary(Name) ->
+            {ok, Name};
         _ ->
-            case update(MatchPos, Match) andalso dets:select(?MODULE, Ms) of
-                [Name] when is_binary(Name) -> {ok, Name};
-                _                           -> error
+            case update(MatchPos, Match) andalso lists:reverse(lists:sort(dets:select(?MODULE, Ms))) of
+                [{_, Name} | _] when is_binary(Name) -> {ok, Name};
+                _                                    -> error
             end
     end.
 
