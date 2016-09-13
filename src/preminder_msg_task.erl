@@ -110,13 +110,7 @@ task_github_url(GitHubUrl) ->
     case preminder_github:pr(Owner, Repos, Number) of
         {ok, Body, open} ->
             Accounts = [Account || [_, _, Account] <- matches(Body, <<"(-|\\*)\s*\\[\s\\]\s@([^\s\\r\\n]*)\s*">>)],
-            Mails = lists:filtermap(fun(Account) ->
-                                            case preminder_user:github_to_mail(Account) of
-                                                {ok, Mail} -> {true, Mail};
-                                                error      -> false
-                                            end
-                                    end, Accounts),
-            _ = ?NOT(length(Mails) =:= length(Accounts),
+            _ = ?NOT(lists:all(fun(Account) -> preminder_user:github_to_mail(Account) =/= error end, Accounts),
                      case preminder_github:fetch_mails(Owner, Repos, Number) of
                          {ok, GithubInfos} ->
                              _ = preminder_user:insert_github(GithubInfos),
@@ -124,9 +118,8 @@ task_github_url(GitHubUrl) ->
                          {error, _} ->
                              ok
                      end),
-
-            _ = error_logger:info_msg("[recv github url] ~s -> ~p~n", [GitHubUrl, Mails]),
-            preminder_pr:update(GitHubUrl, Mails);
+            _ = error_logger:info_msg("[recv github url] ~s -> ~p~n", [GitHubUrl, Accounts]),
+            preminder_pr:update(GitHubUrl, Accounts);
         _ ->
             ok
     end.

@@ -29,8 +29,8 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -record(?MODULE,
         {
-          mail   = '_' :: '_' | binary(),
-          pr_url = '_' :: '_' | binary()
+          login_id = '_' :: '_' | binary(),
+          pr_url   = '_' :: '_' | binary()
         }).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -44,36 +44,37 @@ start_link() ->
 
 %% @doc update the pull request information.
 -spec update(binary(), [binary()]) -> ok.
-update(Url, Mails) ->
-    gen_server:call(?MODULE, {update, Url, Mails}).
+update(Url, Accounts) ->
+    gen_server:call(?MODULE, {update, Url, Accounts}).
 
 %% @doc list of pull request informations.
 -spec list() -> bbmuatache:data().
 list() ->
-    case dets:select(?MODULE, ets:fun2ms(fun(#?MODULE{mail = Mail, pr_url = Url}) -> {Url, Mail} end)) of
+    case dets:select(?MODULE, ets:fun2ms(fun(#?MODULE{login_id = Account, pr_url = Url}) -> {Url, Account} end)) of
         {error, Reason} -> error(Reason, []);
         Other           ->
-            #{"urls" => [#{"url" => U,
-                           "users" => [#{"user" => S} || R <- Rs, is_binary(S = to_slack(R))]}
-                         || {U, Rs} <- compact(Other)]}
+            #{"urls" => [#{"url" => Url,
+                           "users" => [#{"user" => SlackUser}
+                                       || Account <- Accounts, is_binary(SlackUser = to_slack(Account))]}
+                         || {Url, Accounts} <- compact(Other)]}
     end.
 
 %% @doc list of pull request informations that summarized in the user.
 -spec list([binary()]) -> bbmustache:data().
-list(Users0) ->
-    Users = [from_slack(User) || User <- Users0],
-    Ret = dets:foldl(fun(#?MODULE{mail = Mail, pr_url = Url}, Acc) ->
-                             case lists:member(Mail, Users) of
-                                 true  -> [{Mail, Url} | Acc];
+list(SlackUsers) ->
+    Accounts = [from_slack(SlackUser) || SlackUser <- SlackUsers],
+    Ret = dets:foldl(fun(#?MODULE{login_id = Account, pr_url = Url}, Acc) ->
+                             case lists:member(Account, Accounts) of
+                                 true  -> [{Account, Url} | Acc];
                                  false -> Acc
                              end
                      end, [], ?MODULE),
     case Ret of
-        {error, Reason} -> error(Reason, [Users]);
+        {error, Reason} -> error(Reason, [SlackUsers]);
         Other           ->
-            #{"users" => [#{"user" => S,
-                            "urls" => [#{"url" => U} || U <- Us]}
-                          || {R, Us} <- compact(Other), is_binary(S = to_slack(R))]}
+            #{"users" => [#{"user" => SlackUser,
+                            "urls" => [#{"url" => Url} || Url <- Urls]}
+                          || {Account, Urls} <- compact(Other), is_binary(SlackUser = to_slack(Account))]}
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -85,16 +86,16 @@ init(_) ->
     case application:get_env(?APP, ?PR_DETS) of
         undefined      -> {stop, {?PR_DETS, not_found}};
         {ok, DetsFile} ->
-            case dets:open_file(?MODULE, [{file, DetsFile}, {keypos, #?MODULE.mail}, {type, duplicate_bag}]) of
+            case dets:open_file(?MODULE, [{file, DetsFile}, {keypos, #?MODULE.login_id}, {type, duplicate_bag}]) of
                 {ok, ?MODULE}   -> {ok, ?MODULE};
                 {error, Reason} -> {stop, Reason}
             end
     end.
 
 %% @private
-handle_call({update, Url, Mails}, _, State) ->
+handle_call({update, Url, LoginIds}, _, State) ->
     ok = dets:match_delete(?MODULE, #?MODULE{pr_url = Url, _ = '_'}),
-    ok = ?IIF(Mails =:= [], ok, dets:insert(?MODULE, [#?MODULE{mail = Mail, pr_url = Url} || Mail <- Mails])),
+    ok = ?IIF(LoginIds =:= [], ok, dets:insert(?MODULE, [#?MODULE{login_id = LoginId, pr_url = Url} || LoginId <- LoginIds])),
     {reply, ok, State};
 handle_call(_, _, State) ->
     {noreply, State}.
@@ -133,24 +134,27 @@ compact([{X, V1} | Xs], [{X, Values} | Acc]) ->
 compact([{X, V1} | Xs], Acc) ->
     compact(Xs, [{X, [V1]} | Acc]).
 
-%% @doc mail to slack id.
+%% @doc login id to slack id.
 -spec to_slack(binary()) -> binary() | false.
-to_slack(Mail) ->
-    case preminder_user:mail_to_slack_id(Mail) of
+to_slack(LoginId) ->
+    case preminder_user:github_to_slack_id(LoginId) of
         {ok, SlackId} -> SlackId;
         _             -> false
     end.
 
-%% @doc `<@SlackId>' or slack name to mail.
+%% @doc `<@SlackId>' or slack name to login id.
 -spec from_slack(binary()) -> binary() | false.
-from_slack(<<"<@", Rest/binary>>) when byte_size(Rest) > 1 ->
-    SlackId = binary:part(Rest, 0, byte_size(Rest) - 1),
-    case preminder_user:slack_id_to_mail(SlackId) of
-        {ok, Mail} -> Mail;
-        _          -> false
+from_slack(<<"<@", Rest/binary>> = SlackId) ->
+    case binary:split(Rest, [<<"|">>, <<">">>], [global, trim_all]) of
+        []            -> error(badarg, [SlackId]);
+        [SlackId | _] ->
+            case preminder_user:slack_id_to_github(SlackId) of
+                {ok, LoginId} -> LoginId;
+                _             -> false
+            end
     end;
 from_slack(SlackName) ->
-    case preminder_user:slack_name_to_mail(SlackName) of
-        {ok, Mail} -> Mail;
-        _          -> false
+    case preminder_user:slack_name_to_github(SlackName) of
+        {ok, LoginId} -> LoginId;
+        _             -> false
     end.
