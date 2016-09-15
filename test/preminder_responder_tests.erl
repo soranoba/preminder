@@ -1,9 +1,13 @@
 %% @copyright 2016 Hinagiku Soranoba All Rights Reserved.
 
--module(preminder_msg_task_tests).
--define(Mod, preminder_msg_task).
+-module(preminder_responder_tests).
+-define(Mod, preminder_responder).
 
 -include_lib("eunit/include/eunit.hrl").
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Unit Tests
+%%----------------------------------------------------------------------------------------------------------------------
 
 matches_test_() ->
     [

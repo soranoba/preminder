@@ -1,6 +1,8 @@
 %% @copyright 2016 Hinagiku Soranoba All Rights Reserved.
+%%
+%% @doc websocket handler to communicate with the slack.
 
--module(preminder_register).
+-module(preminder_ws).
 -behaviour(websocket_client_handler).
 
 -include("preminder_internal.hrl").
@@ -39,23 +41,23 @@ start_link() ->
 
 %% @private
 init(_, _) ->
-    {ok, #?MODULE{}}.
+    {ok, #?MODULE{}, 10000}.
 
 %% @private
 websocket_handle({text, Msg}, _, State) ->
-    io:format("[handle] ~p~n", [Msg]),
-    ok = preminder_msg_task:do(Msg),
+    io:format("~p~n", [Msg]),
+    ok = preminder_responder:do(Msg),
     {ok, State};
 websocket_handle({ping, _Msg}, _, State) ->
     {reply, {pong, <<>>}, State};
-websocket_handle(Msg, _, State) ->
-    io:format("[handle] ~p~n", [Msg]),
+websocket_handle({pong, _Msg}, _, State) ->
+    {ok, State};
+websocket_handle(_Msg, _, State) ->
     {ok, State}.
 
-websocket_info(Msg, _, State) ->
-    io:format("[info] ~p~n", [Msg]),
+websocket_info(_Msg, _, State) ->
     {ok, State}.
 
 websocket_terminate(Reason, _, _) ->
-    io:format("[terminate] ~p~n", [Reason]),
+    ok = error_logger:warning_msg("websocket terminated. reason : ~p~n", [Reason]),
     ok.

@@ -1,5 +1,5 @@
 {application,preminder,
-             [{description,""},
+             [{description,"Review reminder of pull request for Github and Slack."},
               {vsn,git},
               {registered,[]},
               {mod,{preminder_app, []}},

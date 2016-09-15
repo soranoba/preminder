@@ -1,4 +1,6 @@
 %% @copyright 2016 Hinagiku Soranoba All Rights Reserved.
+%%
+%% @doc preminder top level supervisor.
 %% @private
 
 -module(preminder_sup).
@@ -42,6 +44,6 @@ init(_) ->
                 ?CHILD(preminder_cache, []),
                 ?CHILD(preminder_user, []),
                 ?CHILD(preminder_pr, []),
-                ?CHILD(preminder_register, [])
+                ?CHILD(preminder_ws, [])
                ],
-    {ok, {{one_for_all, 5, 10}, Children}}.
+    {ok, {{one_for_one, 5, 10}, Children}}.
