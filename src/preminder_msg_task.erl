@@ -158,13 +158,4 @@ task_user(SlackUser, Channel) ->
     end.
 
 task_help(Channel) ->
-    Msg =
-        "help\n"
-        "       Show this help\n"
-        "register <SlackName> <GithubName>\n"
-        "       Manually register the user\n"
-        "user <SlackName>\n"
-        "       Show user information in DB\n"
-        "list (<SlackName> ...)\n"
-        "       Show the PR list that should be review by <SlackName>\n",
-    preminder_slack:post(Channel, iolist_to_binary(Msg)).
+    preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("help.mustache")), #{})).
