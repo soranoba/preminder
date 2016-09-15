@@ -13,7 +13,8 @@
 -export([
          request/1,
          priv/1,
-         uri_encode/1
+         uri_encode/1,
+         get_env/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -37,8 +38,7 @@ request(Url) ->
 priv(RelativePath) ->
     case code:priv_dir(?APP) of
         {error, bad_name} -> error(not_found_application, [RelativePath]);
-        Dir               ->
-            filename:join(Dir, RelativePath)
+        Dir               -> filename:join(Dir, RelativePath)
     end.
 
 %% @doc uri encode.
@@ -52,3 +52,21 @@ uri_encode(Str) ->
                       false when C =:= $\n -> "%0A";
                       false -> [C]
                   end || C <- Str]).
+
+%% @doc If `application:get_env/2' return undefined, it execute `os:env/1'
+%%
+%% NOTE: Type of Val MUST be a string.
+%%       OS environment variable is automatically capitalized.
+-spec get_env(atom()) -> {ok, string()} | undefined.
+get_env(Par) ->
+    case application:get_env(?APP, Par) of
+        undefined ->
+            case os:getenv(string:to_upper(atom_to_list(Par))) of
+                false -> undefined;
+                Val   -> {ok, Val}
+            end;
+        {ok, Val} when is_list(Val) ->
+            {ok, Val};
+        {ok, Val} ->
+            error({invalid_env, Val}, [Par])
+    end.

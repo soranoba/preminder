@@ -165,7 +165,7 @@ lookup(Mail) ->
 
 %% @private
 init(_) ->
-    case application:get_env(?APP, ?USER_DETS) of
+    case preminder_util:get_env(?USER_DETS) of
         undefined      -> {stop, {?USER_DETS, not_found}};
         {ok, DetsFile} ->
             case dets:open_file(?MODULE, [{file, DetsFile}, {keypos, #?MODULE.mail}]) of

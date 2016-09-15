@@ -24,7 +24,7 @@
 %% @doc return the github end point.
 -spec endpoint() -> binary().
 endpoint() ->
-    case application:get_env(?APP, github_endpoint) of
+    case preminder_util:get_env(github_endpoint) of
         {ok, [_|_] = EndPoint} ->
             list_to_binary(?IIF(lists:last(EndPoint) =:= $/, EndPoint, EndPoint ++ "/"));
         {ok, _} ->
@@ -36,11 +36,9 @@ endpoint() ->
 %% @doc return the github token.
 -spec token() -> string().
 token() ->
-    case application:get_env(?APP, github_token) of
-        {ok, Token} when is_list(Token) ->
+    case preminder_util:get_env(github_token) of
+        {ok, Token} ->
             Token;
-        {ok, _} ->
-            error(github_token_is_invalid_format, []);
         undefined ->
             error(github_token_is_not_found, [])
     end.

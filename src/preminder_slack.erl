@@ -38,11 +38,9 @@ url(SlackMethod, QueryParams) ->
 %% @doc get the token.
 -spec token() -> string().
 token() ->
-    case application:get_env(?APP, slack_token) of
-        {ok, Token} when is_list(Token) ->
+    case preminder_util:get_env(slack_token) of
+        {ok, Token} ->
             Token;
-        {ok, _} ->
-            error(slack_token_is_invalid_format, []);
         undefined ->
             error(slack_token_is_not_found, [])
     end.

@@ -83,7 +83,7 @@ list(SlackUsers) ->
 
 %% @private
 init(_) ->
-    case application:get_env(?APP, ?PR_DETS) of
+    case preminder_util:get_env(?PR_DETS) of
         undefined      -> {stop, {?PR_DETS, not_found}};
         {ok, DetsFile} ->
             case dets:open_file(?MODULE, [{file, DetsFile}, {keypos, #?MODULE.login_id}, {type, duplicate_bag}]) of

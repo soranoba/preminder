@@ -1,3 +1,4 @@
+APP := preminder
 
 .PHONY: ct
 all: compile eunit ct xref dialyze edoc
@@ -26,12 +27,15 @@ edoc:
 release:
 	@./rebar3 as prod release
 
+build: release
+	@docker build --rm --tag=$(APP):$(shll git describe --always --tags --long) .
+
 start:
 	@if [ ! -f sys.config ]; then \
 		>&2 echo "sys.config is not found. please see sys.config.template"; \
 		exit 1; \
 	fi
-	@./rebar3 as dev shell --sname preminder
+	@./rebar3 as dev shell --sname $(APP) --config sys.config
 
 dialyze:
 	@./rebar3 dialyzer
