@@ -14,7 +14,9 @@
          request/1,
          priv/1,
          uri_encode/1,
-         get_env/1
+         get_env/1,
+         is_match/2,
+         is_match/3
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -70,3 +72,13 @@ get_env(Par) ->
         {ok, Val} ->
             error({invalid_env, Val}, [Par])
     end.
+
+%% @doc It return boolean that result of `re:run'.
+-spec is_match(binary(), binary()) -> boolean().
+is_match(Bin, Pattern) ->
+    re:run(Bin, Pattern) =/= nomatch.
+
+%% @doc It return boolean that result of `re:run'.
+-spec is_match(binary(), binary(), Options :: [term()]) -> boolean().
+is_match(Bin, Pattern, Options) ->
+    re:run(Bin, Pattern, Options) =/= nomatch.

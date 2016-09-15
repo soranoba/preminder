@@ -120,6 +120,8 @@ task_github_url(GitHubUrl) ->
                      end),
             _ = error_logger:info_msg("[recv github url] ~s -> ~p~n", [GitHubUrl, Accounts]),
             preminder_pr:update(GitHubUrl, Accounts);
+        {ok, _, _} -> % not open.
+            preminder_pr:update(GitHubUrl, []);
         _ ->
             ok
     end.
