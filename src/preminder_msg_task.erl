@@ -45,14 +45,16 @@ do(Msg) ->
 do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
-    match_and_run(Text,
-                  [
-                   {<<"https?://[^\s]*(pull|issue)/[0-9]*">>,         {?MODULE, task_github_url, ['$$']}},
-                   {{mention, <<"list(.*)">>},                        {?MODULE, task_list,       ['$1', Channel]}},
-                   {{mention, <<"register\s+([^\s]*)\s+([^\s]*)">>},  {?MODULE, task_register,   ['$1', '$2', Channel]}},
-                   {{mention, <<"user\s+([^\s]*)">>},                 {?MODULE, task_user,       ['$1', Channel]}},
-                   {{mention, <<"help">>},                            {?MODULE, task_help,       [Channel]}}
-                  ]);
+    _ = match_and_run(Text,
+                      [
+                       {<<"https?://[^\s]*(pull|issue)/[0-9]*">>,         {?MODULE, task_github_url, ['$$']}},
+                       {{mention, <<"list(.*)">>},                        {?MODULE, task_list,       ['$1', Channel]}},
+                       {{mention, <<"register\s+([^\s]*)\s+([^\s]*)">>},  {?MODULE, task_register,   ['$1', '$2', Channel]}},
+                       {{mention, <<"user\s+([^\s]*)">>},                 {?MODULE, task_user,       ['$1', Channel]}},
+                       {{mention, <<"help">>},                            {?MODULE, task_help,       [Channel]}},
+                       {{mention, <<"^.*">>},                             {?MODULE, task_help,       [Channel]}}
+                      ]),
+    ok;
 do_1(#{<<"type">> := <<"presence_change">>, <<"presence">> := <<"active">>, <<"user">> := SlackId}) ->
     _ = preminder_user:slack_id_to_mail(SlackId),
     ok;
@@ -60,14 +62,17 @@ do_1(_) ->
     ok.
 
 match_and_run(_, []) ->
-    ok;
+    nomatch;
 match_and_run(Text, [{{mention, Pattern}, {M, F, Args}} | Rest]) ->
     SlackId = preminder_slack:slack_id(),
     case matches(Text, <<"<@", SlackId/binary, "(\|[^>]*)?>">>) of
-        []            -> match_and_run(Text, Rest);
+        [] ->
+            match_and_run(Text, Rest);
         [[Mention|_] | _] ->
-            ok = match_and_run(binary:replace(Text, Mention, <<>>, [global]), [{Pattern, {M, F, Args}}]),
-            match_and_run(Text, Rest)
+            case match_and_run(binary:replace(Text, Mention, <<>>, [global]), [{Pattern, {M, F, Args}}]) of
+                match   -> match;
+                nomatch -> match_and_run(Text, Rest)
+            end
     end;
 match_and_run(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
     Matches = matches(Text, Pattern),
@@ -89,7 +94,7 @@ match_and_run(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
                       error_logger:error_msg("~p~n~p~n", [Reason, erlang:get_stacktrace()])
               end
       end, Matches),
-    match_and_run(Text, Rest).
+    ?IIF(Matches =:= [], match_and_run(Text, Rest), match).
 
 -spec matches(binary(), binary()) -> [[binary()]].
 matches(Text, Pattern) ->
