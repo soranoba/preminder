@@ -1,7 +1,6 @@
 {{#urls}}
-- {{url}}
-{{#users}}<@{{user}}> {{/users}}
-{{^users}}There are a few person who did not finish to review... However, it is unknown.{{/users}}
+{{{url}}}
+ - {{#users}}<@{{{user}}}> {{/users}}{{^users}}There are a few person who did not finish to review... However, it is unknown.{{/users}}
 {{/urls}}
 {{^urls}}
 There is no PR that waiting review.

@@ -1,10 +1,13 @@
 {{#users}}
-<@{{user}}>
+<@{{{user}}}>
 {{#urls}}
- - {{url}}
+ - {{{url}}}
+{{/urls}}
+{{^urls}}
+ - PR that you had not finish review was not found. Congratulations!!
 {{/urls}}
 {{/users}}
-{{^users}}
-PR that you had not finish review was not found.
-Congratulations !!
-{{/users}}
+{{#unknowns}}
+{{{user}}}
+ - Sorry, {{{user}}} is not found.
+{{/unknowns}}

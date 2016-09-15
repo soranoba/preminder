@@ -16,7 +16,8 @@
          uri_encode/1,
          get_env/1,
          is_match/2,
-         is_match/3
+         is_match/3,
+         partition_map/2
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -82,3 +83,20 @@ is_match(Bin, Pattern) ->
 -spec is_match(binary(), binary(), Options :: [term()]) -> boolean().
 is_match(Bin, Pattern, Options) ->
     re:run(Bin, Pattern, Options) =/= nomatch.
+
+%% @doc `lists:partition/2' and `lists:map/2'
+-spec partition_map(Pred, [term()]) -> {Satisfying :: [term()], NotSatisfying :: term()} when
+      Pred :: fun((term()) -> {boolean(), term()}).
+partition_map(Pred, List) ->
+    partition_map(Pred, List, [], []).
+
+%% @see partition_map/2
+-spec partition_map(Pred, [term()], [term()], [term()]) -> {[term()], [term()]} when
+      Pred :: fun((term()) -> {boolean(), term()}).
+partition_map(_Pred, [], Satis, NotSatis) ->
+    {lists:reverse(Satis), lists:reverse(NotSatis)};
+partition_map(Pred, [X | Xs], Satis, NotSatis) ->
+    case Pred(X) of
+        {true, V}  -> partition_map(Pred, Xs, [V | Satis], NotSatis);
+        {false, V} -> partition_map(Pred, Xs, Satis, [V | NotSatis])
+    end.

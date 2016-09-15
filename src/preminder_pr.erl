@@ -62,7 +62,12 @@ list() ->
 %% @doc list of pull request informations that summarized in the user.
 -spec list([binary()]) -> bbmustache:data().
 list(SlackUsers) ->
-    Accounts = [from_slack(SlackUser) || SlackUser <- SlackUsers],
+    {Accounts, UnknownUsers} = preminder_util:partition_map(fun(SlackUser) ->
+                                                                    case from_slack(SlackUser) of
+                                                                        false   -> {false, SlackUser};
+                                                                        Account -> {true, Account}
+                                                                    end
+                                                            end, SlackUsers),
     Ret = dets:foldl(fun(#?MODULE{login_id = Account, pr_url = Url}, Acc) ->
                              case lists:member(Account, Accounts) of
                                  true  -> [{Account, Url} | Acc];
@@ -74,7 +79,9 @@ list(SlackUsers) ->
         Other           ->
             #{"users" => [#{"user" => SlackUser,
                             "urls" => [#{"url" => Url} || Url <- Urls]}
-                          || {Account, Urls} <- compact(Other), is_binary(SlackUser = to_slack(Account))]}
+                          || {Account, Urls} <- compact(Other ++ Accounts), is_binary(SlackUser = to_slack(Account))],
+              "unknowns" => [#{"user" => SlackUser}
+                             || SlackUser <- UnknownUsers]}
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -121,18 +128,25 @@ terminate(_, _) ->
 %%----------------------------------------------------------------------------------------------------------------------
 
 %% @doc merge values with the same key
--spec compact([{term(), term()}]) -> [{term(), [term()]}].
-compact(Proplists) ->
+-spec compact([{term(), term()} | term()]) -> [{term(), [term()]}].
+compact(Proplists0) ->
+    Proplists = lists:map(fun({_, _} = X) -> X;
+                             (X)          -> {X}
+                          end, Proplists0),
     compact(lists:reverse(lists:keysort(1, Proplists)), []).
 
 %% @see compact/1
--spec compact([{term(), term()}], [{term(), [term()]}]) -> [{term(), [term()]}].
+-spec compact([{term(), term()} | {term()}], [{term(), [term()]}]) -> [{term(), [term()]}].
 compact([], Acc) ->
     Acc;
 compact([{X, V1} | Xs], [{X, Values} | Acc]) ->
     compact(Xs, [{X, [V1 | Values]} | Acc]);
 compact([{X, V1} | Xs], Acc) ->
-    compact(Xs, [{X, [V1]} | Acc]).
+    compact(Xs, [{X, [V1]} | Acc]);
+compact([{X} | Xs], [{X, _} | _] = Acc) ->
+    compact(Xs, Acc);
+compact([{X} | Xs], Acc) ->
+    compact(Xs, [{X, []} | Acc]).
 
 %% @doc login id to slack id.
 -spec to_slack(binary()) -> binary() | false.
@@ -144,9 +158,9 @@ to_slack(LoginId) ->
 
 %% @doc `<@SlackId>' or slack name to login id.
 -spec from_slack(binary()) -> binary() | false.
-from_slack(<<"<@", Rest/binary>> = SlackId) ->
+from_slack(<<"<@", Rest/binary>>) ->
     case binary:split(Rest, [<<"|">>, <<">">>], [global, trim_all]) of
-        []            -> error(badarg, [SlackId]);
+        []            -> false;
         [SlackId | _] ->
             case preminder_user:slack_id_to_github(SlackId) of
                 {ok, LoginId} -> LoginId;
