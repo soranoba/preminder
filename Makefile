@@ -1,4 +1,5 @@
 APP := preminder
+TAG := $(shell git describe --always --tags)
 
 .PHONY: ct
 all: compile eunit ct xref dialyze edoc
@@ -28,7 +29,7 @@ release:
 	@./rebar3 as prod release
 
 build: release
-	@docker build --rm --tag=$(APP):$(shll git describe --always --tags --long) .
+	docker build --rm --tag=$(APP):$(TAG) .
 
 start:
 	@if [ ! -f sys.config ]; then \
