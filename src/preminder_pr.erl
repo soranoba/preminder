@@ -16,7 +16,8 @@
 
          update/2,
          list/0,
-         list/1
+         list/1,
+         r_list/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -82,6 +83,23 @@ list(SlackUsers) ->
                           || {Account, Urls} <- compact(Other ++ Accounts), is_binary(SlackUser = to_slack(Account))],
               "unknowns" => [#{"user" => SlackUser}
                              || SlackUser <- UnknownUsers]}
+    end.
+
+-spec r_list(binary()) -> bbmustache:data().
+r_list(GithubUrls) ->
+    Ret = dets:foldl(fun(#?MODULE{login_id = Account, pr_url = Url}, Acc) ->
+                             case lists:member(Url, GithubUrls) of
+                                 true  -> [{Url, Account} | Acc];
+                                 false -> Acc
+                             end
+                     end, [], ?MODULE),
+    case Ret of
+        {error, Reason} -> error(Reason, [GithubUrls]);
+        Other           ->
+            #{"urls" => [#{"url" => Url,
+                           "users" => [#{"user" => SlackUser}
+                                       || Account <- Accounts, is_binary(SlackUser = to_slack(Account))]}
+                         || {Url, Accounts} <- compact(Other)]}
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------

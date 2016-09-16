@@ -16,7 +16,8 @@
          task_list/2,
          task_register/3,
          task_user/2,
-         task_help/1
+         task_help/1,
+         task_remind/2
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -74,6 +75,7 @@ do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
     Tasks0 = [
+              {{mention, <<"remind">>},                         {?MODULE, task_remind,     [Text, Channel]}},
               {<<"https?://[^\s]*(pull|issue)/[0-9]*">>,        {?MODULE, task_github_url, ['$$']}},
               {{mention, <<"list(.*)">>},                       {?MODULE, task_list,       ['$1', Channel]}},
               {{mention, <<"register\s+([^\s]*)\s+([^\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
@@ -139,6 +141,12 @@ matches(Text, Pattern) ->
 %%----------------------------------------------------------------------------------------------------------------------
 %% Task Functions
 %%----------------------------------------------------------------------------------------------------------------------
+
+task_remind(Text, Channel) ->
+    Matches = matches(Text, <<"https?://[^\s]*(pull|issue)/[0-9]*">>),
+    Urls = [GithubUrl || [GithubUrl | _] <- Matches],
+    Ret = preminder_pr:r_list(Urls),
+    preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret)).
 
 %% @doc task for pull request url.
 %%
