@@ -122,7 +122,7 @@ choose_tasks(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
                                           end
                                   end, Args0),
                  {M, F, Args}
-             end || Match <- Matches]
+             end || Match <- Matches, hd(Match) =/= <<>>]
     end.
 
 %% @doc execute the tasks.

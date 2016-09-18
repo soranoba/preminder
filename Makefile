@@ -1,8 +1,7 @@
 APP := preminder
 TAG := $(shell git describe --always --tags)
 
-.PHONY: ct
-all: compile eunit ct xref dialyze edoc
+all: compile eunit xref dialyze
 
 compile:
 	@./rebar3 as dev compile
@@ -21,9 +20,6 @@ cover:
 
 eunit:
 	@./rebar3 eunit
-
-edoc:
-	@./rebar3 as dev edoc
 
 release:
 	@./rebar3 as prod release
