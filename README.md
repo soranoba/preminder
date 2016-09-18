@@ -50,7 +50,37 @@ docker attach ${NAME}
 
 ## Usage
 
-[![https://gyazo.com/67c4161b9ac8ed20df37126fabc317e1](https://i.gyazo.com/67c4161b9ac8ed20df37126fabc317e1.png)](https://gyazo.com/67c4161b9ac8ed20df37126fabc317e1)
+[![https://gyazo.com/36cb4838496c036934fcc6d9702e66d8](https://i.gyazo.com/36cb4838496c036934fcc6d9702e66d8.png)](https://gyazo.com/36cb4838496c036934fcc6d9702e66d8)
+
+### User Registration
+
+* It **MUST** be the same as the your email address that is using on Slack and Github.
+* Email's public setting is **SHOULD** be public on Github.
+ * You can also manually register with the register command.
+
+More informations.
+
+* It collect the id, name and email from Slack, when Slack User change the status to active from away.
+* It collect the account and email, when Pull Request URL is pasted on Slack channel that is joined preminder.
+
+### Pull Request
+
+To the registration of the reviewer, you **MUST** be in the following format description.
+
+```markdown
+- [ ] @soranoba
+
+* [ ] @soranoba
+```
+
+* String after @ character, **MUST** be a login id of Github.
+* When your review finished, you **MUST** put a check in this check box.
+* In order to update the information of preminder, you **SHOULD** use the bot of Github.
+ * Update of the informations is only when the Pull Request URL is pasted on Slack.
+
+### Reminder
+
+If you use the remind method of Slack and send a mention to preminder, it acts as a reminder.
 
 ## License
 
