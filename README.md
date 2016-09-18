@@ -1,5 +1,6 @@
 preminder
 =============
+[![Build Status](https://travis-ci.org/soranoba/preminder.svg?branch=master)](https://travis-ci.org/soranoba/preminder)
 
 Review reminder of pull request for Github and Slack.
 

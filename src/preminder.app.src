@@ -1,10 +1,12 @@
+%% vim: set filetype=erlang : -*- erlang -*-
 {application,preminder,
-             [{description,"Review reminder of pull request for Github and Slack."},
-              {vsn,git},
-              {registered,[]},
-              {mod,{preminder_app, []}},
-              {applications,[kernel,stdlib,hackney,websocket_client,jsone,bbmustache]},
-              {maintainers,["Hinagiku Soranoba"]},
-              {licenses,["MIT"]},
-              {links,[{"GitHub","https://github.com/soranoba/preminder"}]},
-              {env,[]}]}.
+ [{description,"Review reminder of pull request for Github and Slack."},
+  {vsn,git},
+  {registered,[preminder_sup, preminder_pr, preminder_user, preminder_cache]},
+  {mod,{preminder_app, []}},
+  {applications,[kernel,stdlib,hackney,websocket_client,jsone,bbmustache]},
+  {maintainers,["Hinagiku Soranoba"]},
+  {licenses,["MIT"]},
+  {links,[{"GitHub","https://github.com/soranoba/preminder"}]},
+  {env,[]}
+ ]}.

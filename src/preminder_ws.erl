@@ -45,7 +45,6 @@ init(_, _) ->
 
 %% @private
 websocket_handle({text, Msg}, _, State) ->
-    io:format("~p~n", [Msg]),
     ok = preminder_responder:do(Msg),
     {ok, State};
 websocket_handle({ping, _Msg}, _, State) ->
