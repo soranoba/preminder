@@ -15,15 +15,16 @@ There provides a way using the docker.
 The usual way, please refer to [Makefile](Makefile).
 
 ```bash
-# build
-make build
+# pull
+docker pull soranoba/preminder
+
 # run : Please use the -v option, if you want to have the data to the outside of the container.
 docker run -i -t -d --env USER_DETS_PATH=user.dets \
                     --env PR_DETS_PATH=pr.dets \
                     --env SLACK_TOKEN=xoxb-XXXXXXXX-XXXXXXXXXXXXXXXX \
                     --env GITHUB_ENDPOINT=https://api.github.com \
                     --env GITHUB_TOKEN=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
-                    --name ${NAME} --restart=always preminder
+                    --name ${NAME} soranoba/preminder
 
 # stop
 docker stop ${NAME}

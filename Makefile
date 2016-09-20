@@ -25,7 +25,8 @@ release:
 	@./rebar3 as prod release
 
 build: release
-	docker build --rm --tag=$(APP):$(TAG) .
+	docker build --rm --tag=soranoba/$(APP):$(TAG) .
+	docker tag -f soranoba/$(APP):$(TAG) soranoba/$(APP):latest
 
 start:
 	@if [ ! -f sys.config ]; then \
