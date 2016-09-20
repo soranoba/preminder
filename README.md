@@ -25,8 +25,8 @@ docker run -i -t -d --env USER_DETS_PATH=user.dets \
                     --env GITHUB_TOKEN=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
                     --name ${NAME} --restart=always preminder
 
-# stop : Currently it does not support SIGTERM. So, -t option should be set to 0.
-docker stop -t 0
+# stop
+docker stop ${NAME}
 
 # debug (1)
 docker exec -it ${NAME} /bin/bash
