@@ -36,7 +36,7 @@
 %% e.g.
 %% ```
 %% Input   : <<"[[[ https://github.com/soranoba/preminder ]]]">>
-%% Pattern : <<"https?://github.com/([^/\s]*)/([^/\s]*)">>
+%% Pattern : <<"https?://github.com/([^/\\s]*)/([^/\\s]*)">>
 %%
 %% $$ : <<"https://github.com/soranoba/preminder">>
 %% $1 : <<"soranoba">>
@@ -75,13 +75,13 @@ do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
     Tasks0 = [
-              {{mention, <<"remind">>},                         {?MODULE, task_remind,     [Text, Channel]}},
-              {<<"https?://[^\s]*(pull|issue)/[0-9]*">>,        {?MODULE, task_github_url, ['$$']}},
-              {{mention, <<"list(.*)">>},                       {?MODULE, task_list,       ['$1', Channel]}},
-              {{mention, <<"register\s+([^\s]*)\s+([^\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
-              {{mention, <<"user\s+([^\s]*)">>},                {?MODULE, task_user,       ['$1', Channel]}},
-              {{mention, <<"help">>},                           {?MODULE, task_help,       [Channel]}},
-              {{mention, <<"^.*">>},                            {?MODULE, task_help,       [Channel]}}
+              {{mention, <<"remind">>},                             {?MODULE, task_remind,     [Text, Channel]}},
+              {<<"https?://[^\\s]*(pull|issue)/[0-9]*">>,           {?MODULE, task_github_url, ['$$']}},
+              {{mention, <<"list(.*)">>},                           {?MODULE, task_list,       ['$1', Channel]}},
+              {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
+              {{mention, <<"user\\s+([^\\s]*)">>},                  {?MODULE, task_user,       ['$1', Channel]}},
+              {{mention, <<"help">>},                               {?MODULE, task_help,       [Channel]}},
+              {{mention, <<"^.*">>},                                {?MODULE, task_help,       [Channel]}}
              ],
     Tasks = choose_tasks(Text, Tasks0),
     execute_tasks(Tasks);
@@ -143,7 +143,7 @@ matches(Text, Pattern) ->
 %%----------------------------------------------------------------------------------------------------------------------
 
 task_remind(Text, Channel) ->
-    Matches = matches(Text, <<"https?://[^\s]*(pull|issue)/[0-9]*">>),
+    Matches = matches(Text, <<"https?://[^\\s]*(pull|issue)/[0-9]*">>),
     Urls = [GithubUrl || [GithubUrl | _] <- Matches],
     Ret = preminder_pr:r_list(Urls),
     preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret)).
@@ -157,7 +157,7 @@ task_github_url(GitHubUrl) ->
 
     case binary:match(preminder_github:endpoint(), Host) =/= nomatch andalso preminder_github:pr(Owner, Repos, Number) of
         {ok, Body, open} ->
-            Accounts = [Account || [_, _, Account] <- matches(Body, <<"(-|\\*)\s*\\[\s\\]\s@([^\s\\r\\n]*)\s*">>)],
+            Accounts = [Account || [_, _, Account] <- matches(Body, <<"(-|\\*)\\s*\\[\\s\\]\\s@([^\\s\\r\\n]*)\\s*">>)],
             _ = ?NOT(lists:all(fun(Account) -> preminder_user:github_to_mail(Account) =/= error end, Accounts),
                      case preminder_github:fetch_mails(Owner, Repos, Number) of
                          {ok, GithubInfos} ->
