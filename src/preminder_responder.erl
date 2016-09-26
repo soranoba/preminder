@@ -75,13 +75,13 @@ do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
     Tasks0 = [
-              {{mention, <<"remind">>},                             {?MODULE, task_remind,     [Text, Channel]}},
+              {{mention, <<"remind.*">>},                           {?MODULE, task_remind,     [Text, Channel]}},
               {<<"https?://[^\\s]*(pull|issue)/[0-9]*">>,           {?MODULE, task_github_url, ['$$']}},
-              {{mention, <<"list(.*)">>},                           {?MODULE, task_list,       ['$1', Channel]}},
+              {{mention, <<"list\\s(.*)">>},                        {?MODULE, task_list,       ['$1', Channel]}},
               {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
               {{mention, <<"user\\s+([^\\s]*)">>},                  {?MODULE, task_user,       ['$1', Channel]}},
-              {{mention, <<"help">>},                               {?MODULE, task_help,       [Channel]}},
-              {{mention, <<"^.*">>},                                {?MODULE, task_help,       [Channel]}}
+              {{mention, <<"help.*">>},                             {?MODULE, task_help,       [Channel]}},
+              {{mention, <<".*">>},                                 {?MODULE, task_help,       [Channel]}}
              ],
     Tasks = choose_tasks(Text, Tasks0),
     execute_tasks(Tasks);
@@ -109,10 +109,14 @@ choose_tasks(Text, [{{mention, Pattern}, TaskIn} | Rest]) ->
             end
     end;
 choose_tasks(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
-    Matches = matches(Text, Pattern),
-    case Matches of
+    Matches0 = matches(Text, Pattern),
+    case Matches0 of
         [] -> choose_tasks(Text, Rest);
         _  ->
+            Matches = case Matches0 of
+                          [_] -> Matches0;
+                          _   -> lists:filter(fun([Hd | _]) -> Hd =/= <<>> end, Matches0)
+                      end,
             [begin
                  Args = lists:map(fun(MaybeAtom) ->
                                           case is_atom(MaybeAtom) andalso atom_to_list(MaybeAtom) of
@@ -122,7 +126,7 @@ choose_tasks(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
                                           end
                                   end, Args0),
                  {M, F, Args}
-             end || Match <- Matches, hd(Match) =/= <<>>]
+             end || Match <- Matches]
     end.
 
 %% @doc execute the tasks.
@@ -142,6 +146,8 @@ matches(Text, Pattern) ->
 %% Task Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
+%% @doc task for remind reviewers of the pull requests.
+-spec task_remind(binary(), binary()) -> term().
 task_remind(Text, Channel) ->
     Matches = matches(Text, <<"https?://[^\\s]*(pull|issue)/[0-9]*">>),
     Urls = [GithubUrl || [GithubUrl | _] <- Matches],
