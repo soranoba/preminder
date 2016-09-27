@@ -150,6 +150,7 @@ matches(Text, Pattern) ->
 task_remind(Text, Channel) ->
     Matches = matches(Text, <<"https?://[^\\s]*(pull|issue)/[0-9]*">>),
     Urls = [GithubUrl || [GithubUrl | _] <- Matches],
+    ok  = preminder_util:pforeach(fun task_github_url/1, Urls),
     Ret = preminder_pr:r_list(Urls),
     preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret)).
 
@@ -187,10 +188,16 @@ task_list(Text, Channel) ->
     Users = binary:split(Text, <<" ">>, [global, trim_all]),
     case lists:member(<<"all">>, Users) orelse Users =:= [] of
         true ->
-            Ret = preminder_pr:list(),
+            Ret0 = preminder_pr:list(),
+            Urls = preminder_pr:fetch_urls_recursive(Ret0),
+            ok   = preminder_util:pforeach(fun task_github_url/1, Urls),
+            Ret  = preminder_pr:list(),
             preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret));
         false ->
-            Ret = preminder_pr:list(Users),
+            Ret0 = preminder_pr:list(Users),
+            Urls = preminder_pr:fetch_urls_recursive(Ret0),
+            ok   = preminder_util:pforeach(fun task_github_url/1, Urls),
+            Ret  = preminder_pr:list(Users),
             preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("list.mustache")), Ret))
     end.
 
