@@ -24,17 +24,17 @@ choose_tasks_test_() ->
      ?_assertEqual([], ?Mod:choose_tasks(<<>>, [])),
 
      ?_assertEqual([{m, f, [a, <<"hoge">>, b]}],
-                   ?Mod:choose_tasks(<<"hoge">>, [{<<".*">>, {m, f, [a, '$$', b]}}])),
+                   ?Mod:choose_tasks(<<"hoge">>, [{<<"^.*$">>, {m, f, [a, '$$', b]}}])),
      ?_assertEqual([{m, f, [<<"{a b}">>, <<"a">>, <<"b">>]},
                     {m, f, [<<"{c d}">>, <<"c">>, <<"d">>]}],
                    ?Mod:choose_tasks(<<"{a b}, {c d}">>,
                                      [{<<"{([^\s]*)\s([^\s]*)}">>, {m, f, ['$$', '$1', '$2']}}])),
      ?_assertEqual([{m, f, [<<"ab">>]},
                     {m, f, [<<"cd">>]}],
-                   ?Mod:choose_tasks(<<"ab\ncd">>, [{<<".*">>, {m, f, ['$$']}}])),
+                   ?Mod:choose_tasks(<<"ab\ncd">>, [{<<".+">>, {m, f, ['$$']}}])),
      ?_assertEqual([{m, f, [<<"ab">>]}],
-                   ?Mod:choose_tasks(<<"ab">>, [{<<".*">>, {m, f, ['$$']}},
-                                                {<<".*">>, {m, f, [a]}}]))
+                   ?Mod:choose_tasks(<<"ab">>, [{<<"^.*$">>, {m, f, ['$$']}},
+                                                {<<"^.*$">>, {m, f, [a]}}]))
     ].
 
 choose_task2_test_() ->
@@ -50,11 +50,11 @@ choose_task2_test_() ->
      [
       ?_assertEqual([{m, f, [<<"hoge">>]}],
                     ?Mod:choose_tasks(<<"<@", SlackId/binary, ">hoge">>,
-                                      [{{mention, <<".*">>}, {m, f, ['$$']}}])),
+                                      [{{mention, <<"^.*$">>}, {m, f, ['$$']}}])),
       ?_assertEqual([{m, f, [<<"hoge">>]}],
                     ?Mod:choose_tasks(<<"<@", SlackId/binary, "|dummyName>hoge">>,
-                                      [{{mention, <<".*">>}, {m, f, ['$$']}}])),
+                                      [{{mention, <<"^.*$">>}, {m, f, ['$$']}}])),
       ?_assertEqual([{m, f, [<<"hogefugo">>]}],
                     ?Mod:choose_tasks(<<"hoge<@", SlackId/binary, ">fugo">>,
-                                      [{{mention, <<".*">>}, {m, f, ['$$']}}]))
+                                      [{{mention, <<"^.*$">>}, {m, f, ['$$']}}]))
      ]}.

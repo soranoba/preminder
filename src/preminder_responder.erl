@@ -73,18 +73,21 @@ do(Msg) ->
 -spec do_1(map()) -> ok.
 do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
-do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel}) ->
+do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel, <<"user">> := User}) ->
     Tasks0 = [
               {{mention, <<"remind.*">>},                           {?MODULE, task_remind,     [Text, Channel]}},
               {<<"https?://[^\\s]*(pull|issue)/[0-9]*">>,           {?MODULE, task_github_url, ['$$']}},
-              {{mention, <<"list\\s(.*)">>},                        {?MODULE, task_list,       ['$1', Channel]}},
+              {{mention, <<"list(.*)$">>},                          {?MODULE, task_list,       ['$1', Channel]}},
               {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
-              {{mention, <<"user\\s+([^\\s]*)">>},                  {?MODULE, task_user,       ['$1', Channel]}},
-              {{mention, <<"help.*">>},                             {?MODULE, task_help,       [Channel]}},
-              {{mention, <<".*">>},                                 {?MODULE, task_help,       [Channel]}}
+              {{mention, <<"user\\s+([^\\s]*)$">>},                 {?MODULE, task_user,       ['$1', Channel]}},
+              {{mention, <<"help.*$">>},                            {?MODULE, task_help,       [Channel]}},
+              {{mention, <<"^.*$">>},                               {?MODULE, task_help,       [Channel]}}
              ],
-    Tasks = choose_tasks(Text, Tasks0),
-    execute_tasks(Tasks);
+    ?NOT(User =:= preminder_slack:slack_id(),
+         begin
+             Tasks = choose_tasks(Text, Tasks0),
+             execute_tasks(Tasks)
+         end);
 do_1(#{<<"type">> := <<"presence_change">>, <<"presence">> := <<"active">>, <<"user">> := SlackId}) ->
     %% NOTE: register or update the slack user.
     _ = preminder_user:slack_id_to_mail(SlackId),
@@ -109,14 +112,10 @@ choose_tasks(Text, [{{mention, Pattern}, TaskIn} | Rest]) ->
             end
     end;
 choose_tasks(Text, [{Pattern, {M, F, Args0}} | Rest]) ->
-    Matches0 = matches(Text, Pattern),
-    case Matches0 of
+    Matches = matches(Text, Pattern),
+    case Matches of
         [] -> choose_tasks(Text, Rest);
         _  ->
-            Matches = case Matches0 of
-                          [_] -> Matches0;
-                          _   -> lists:filter(fun([Hd | _]) -> Hd =/= <<>> end, Matches0)
-                      end,
             [begin
                  Args = lists:map(fun(MaybeAtom) ->
                                           case is_atom(MaybeAtom) andalso atom_to_list(MaybeAtom) of
