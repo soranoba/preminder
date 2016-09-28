@@ -60,3 +60,30 @@ partition_map_test_() ->
                                                         {X rem 2 =:= 1, X * ((X - 1) rem 2 + 1)}
                                                 end, lists:seq(1, 6)))
     ].
+
+pforeach_test_() ->
+    [
+     fun() ->
+             {_, Ref} = spawn_monitor(fun() -> preminder_util:pforeach(fun(_) -> exit(abort) end, [1,2]) end),
+             receive
+                 {'DOWN', Ref, _, _, Reason} ->
+                     ?assertEqual(abort, Reason)
+             end
+     end,
+     fun() ->
+             F = fun Loop(Receives) ->
+                         receive
+                             Int when is_integer(Int) ->
+                                 Loop([Int | Receives]);
+                             {finish, Pid} when is_pid(Pid) ->
+                                 Pid ! Receives
+                         end
+                 end,
+             P = spawn_link(fun() -> F([]) end),
+             ?assertEqual(ok, preminder_util:pforeach(fun(I) -> P ! I end, lists:seq(1,10))),
+             P ! {finish, self()},
+             receive
+                 Receives -> ?assertEqual(lists:seq(1,10), lists:usort(Receives))
+             end
+     end
+    ].

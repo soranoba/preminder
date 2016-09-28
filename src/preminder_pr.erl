@@ -17,7 +17,8 @@
          update/2,
          list/0,
          list/1,
-         r_list/1
+         r_list/1,
+         fetch_urls_recursive/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -81,10 +82,10 @@ list(SlackUsers) ->
             #{"users" => [#{"user" => SlackUser,
                             "urls" => [#{"url" => Url} || Url <- Urls]}
                           || {Account, Urls} <- compact(Other ++ Accounts), is_binary(SlackUser = to_slack(Account))],
-              "unknowns" => [#{"user" => SlackUser}
-                             || SlackUser <- UnknownUsers]}
+              "unknowns" => [#{"user" => SlackUser} || SlackUser <- UnknownUsers]}
     end.
 
+%% @doc List of reviewers of the pull request.
 -spec r_list(binary()) -> bbmustache:data().
 r_list(GithubUrls) ->
     Ret = dets:foldl(fun(#?MODULE{login_id = Account, pr_url = Url}, Acc) ->
@@ -101,6 +102,24 @@ r_list(GithubUrls) ->
                                        || Account <- Accounts, is_binary(SlackUser = to_slack(Account))]}
                          || {Url, Accounts} <- compact(Other)]}
     end.
+
+%% @doc fetch urls from `bbmustache:data/0'
+-spec fetch_urls_recursive(map()) -> [Url :: binary()].
+fetch_urls_recursive(Map) ->
+    lists:usort(maps:fold(fun fetch_urls_recursive_impl/3, [], Map)).
+
+%% @see fetch_urls_recursive_impl/3
+-spec fetch_urls_recursive_impl(string(), binary(), [binary()]) -> [binary()].
+fetch_urls_recursive_impl("url",  Url,  Acc) ->
+    [Url | Acc];
+fetch_urls_recursive_impl(_, Map, Acc) when is_map(Map) ->
+    maps:fold(fun fetch_urls_recursive_impl/3, Acc, Map);
+fetch_urls_recursive_impl(_, List, Acc) when is_list(List) ->
+    lists:foldl(fun(V, AccIn) ->
+                        fetch_urls_recursive_impl('_', V, AccIn)
+                end, Acc, List);
+fetch_urls_recursive_impl(_, _, Acc) ->
+    Acc.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'gen_server' Callback Functions

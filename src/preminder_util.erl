@@ -17,7 +17,8 @@
          get_env/1,
          is_match/2,
          is_match/3,
-         partition_map/2
+         partition_map/2,
+         pforeach/2
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -100,3 +101,24 @@ partition_map(Pred, [X | Xs], Satis, NotSatis) ->
         {true, V}  -> partition_map(Pred, Xs, [V | Satis], NotSatis);
         {false, V} -> partition_map(Pred, Xs, Satis, [V | NotSatis])
     end.
+
+%% @doc partial foreach
+-spec pforeach(fun((term()) -> term()), [term()]) -> ok.
+pforeach(Fun, List) ->
+    Refs = pforeach_impl(Fun, List, []),
+    lists:foreach(fun(Ref) ->
+                          receive
+                              {'DOWN', Ref, process, _, normal} ->
+                                  ok;
+                              {'DOWN', Ref, process, _, Reason} ->
+                                  Reason
+                          end
+                  end, Refs).
+
+%% @see pforeach/2
+-spec pforeach_impl(fun((term()) -> term()), [term()], [reference()]) -> [reference()].
+pforeach_impl(_, [], Refs) ->
+    Refs;
+pforeach_impl(Fun, [X | Xs], Refs) ->
+    {_, Ref} = spawn_opt(fun() -> Fun(X) end, [link, monitor]),
+    pforeach_impl(Fun, Xs, [Ref | Refs]).
