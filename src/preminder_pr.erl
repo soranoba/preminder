@@ -109,7 +109,7 @@ fetch_urls_recursive(Map) ->
     lists:usort(maps:fold(fun fetch_urls_recursive_impl/3, [], Map)).
 
 %% @see fetch_urls_recursive_impl/3
--spec fetch_urls_recursive_impl(string(), binary(), [binary()]) -> [binary()].
+-spec fetch_urls_recursive_impl(term(), binary(), [binary()]) -> [binary()].
 fetch_urls_recursive_impl("url",  Url,  Acc) ->
     [Url | Acc];
 fetch_urls_recursive_impl(_, Map, Acc) when is_map(Map) ->
