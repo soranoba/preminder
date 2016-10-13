@@ -14,6 +14,7 @@
          url/2,
          mail/1,
          pr/3,
+         pr_search/1,
          fetch_mails/3
         ]).
 
@@ -72,6 +73,21 @@ pr(Owner, Repos, Number) ->
             IsWip = lists:any(fun(X) -> preminder_util:is_match(X, <<"(W|w)(I|i)(P|p)">>) end,
                               [Title | [LabelName || #{<<"name">> := LabelName} <- Labels]]),
             {ok, Body, ?IIF(State =:= <<"open">>, ?IIF(IsWip, wip, open), closed)};
+        {ok, #{<<"message">> := Message}} ->
+            {error, Message};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+%% @doc Search the Pull Requests with Query.
+-spec pr_search(binary()) -> {ok, Urls :: binary()} | {error, Reason :: term()}.
+pr_search(QueryBin) ->
+    Q = ?IIF(QueryBin =:= <<>>, <<>>, <<"+", QueryBin/binary>>),
+    Url = url("search/issues", [{"q", "is:open+is:pr" ++ binary_to_list(Q)}]),
+    case preminder_util:request(Url) of
+        {ok, #{<<"items">> := Items}} ->
+            PullUrls = lists:map(fun(#{<<"html_url">> := PullUrl}) -> PullUrl end, Items),
+            {ok, PullUrls};
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
         {error, Reason} ->

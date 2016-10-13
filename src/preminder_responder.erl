@@ -17,7 +17,9 @@
          task_register/3,
          task_user/2,
          task_help/1,
-         task_remind/2
+         task_remind/2,
+         task_search/2,
+         task_pray/2
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -81,6 +83,8 @@ do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel
               {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
               {{mention, <<"user\\s+([^\\s]*)$">>},                 {?MODULE, task_user,       ['$1', Channel]}},
               {{mention, <<"help.*$">>},                            {?MODULE, task_help,       [Channel]}},
+              {{mention, <<"search\\s(.*)$">>},                     {?MODULE, task_search,     ['$1', Channel]}},
+              {{mention, <<":?pray:?.*$">>},                        {?MODULE, task_pray,       [User, Channel]}},
               {{mention, <<"^.*$">>},                               {?MODULE, task_help,       [Channel]}}
              ],
     ?NOT(User =:= preminder_slack:slack_id(),
@@ -233,3 +237,28 @@ task_user(SlackUser, Channel) ->
 -spec task_help(binary()) -> term().
 task_help(Channel) ->
     preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("help.mustache")), #{})).
+
+%% @doc task for search command.
+-spec task_search(binary(), binary()) -> term().
+task_search(Query, Channel) ->
+    Qs = binary:split(Query, <<" ">>, [global, trim_all]),
+    SearchQuery = string:join([binary_to_list(Q) || Q <- Qs], "+"),
+    case preminder_github:pr_search(list_to_binary(SearchQuery)) of
+        {ok, PullUrls} ->
+            ok  = preminder_util:pforeach(fun task_github_url/1, PullUrls),
+            Ret = preminder_pr:r_list(PullUrls),
+            Msg = bbmustache:compile(bbmustache:parse_file(?PRIV("list_all.mustache")), Ret),
+            preminder_slack:post(Channel, Msg);
+        {error, Reason} ->
+            preminder_slack:post(Channel, iolist_to_binary(io_lib:format("~p", [Reason])))
+    end.
+
+%% @doc task for pray command.
+-spec task_pray(binary(), binary()) -> term().
+task_pray(User, Channel) ->
+    case preminder_user:slack_id_to_github(User) of
+        {ok, GithubUser} ->
+            task_search(<<"author:", GithubUser/binary>>, Channel);
+        error ->
+            preminder_slack:post(Channel, <<"[ERROR] Please register in this service">>)
+    end.
