@@ -47,7 +47,7 @@ token() ->
 %% @doc Generate a url from method and query parameters.
 -spec url(string(), [{string(), string()}]) -> binary().
 url(GithubMethod, QueryParams) ->
-    QP = string:join([K ++ "=" ++ preminder_util:uri_encode(V) || {K, V} <- QueryParams], "&"),
+    QP = string:join([K ++ "=" ++ V || {K, V} <- QueryParams], "&"),
     iolist_to_binary([endpoint(), GithubMethod, ?IIF(QP =:= [], QP, ["?", QP])]).
 
 %% @doc get the mail.

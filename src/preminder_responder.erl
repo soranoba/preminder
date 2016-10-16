@@ -242,7 +242,7 @@ task_help(Channel) ->
 -spec task_search(binary(), binary()) -> term().
 task_search(Query, Channel) ->
     Qs = binary:split(Query, <<" ">>, [global, trim_all]),
-    SearchQuery = string:join([binary_to_list(Q) || Q <- Qs], "+"),
+    SearchQuery = string:join([preminder_util:uri_encode(binary_to_list(Q)) || Q <- Qs], "+"),
     case preminder_github:pr_search(list_to_binary(SearchQuery)) of
         {ok, PullUrls} ->
             ok  = preminder_util:pforeach(fun task_github_url/1, PullUrls),
