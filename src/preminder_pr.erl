@@ -14,11 +14,12 @@
 -export([
          start_link/0,
 
-         update/2,
+         update/3,
          list/0,
          list/1,
          r_list/1,
-         fetch_urls_recursive/1
+         fetch_urls_recursive/1,
+         title/1
         ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -35,6 +36,12 @@
           pr_url   = '_' :: '_' | binary()
         }).
 
+-record(pr_title,
+        {
+          pr_url = '_' :: '_' | binary(),
+          title  = '_' :: '_' | binary()
+        }).
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
@@ -45,9 +52,9 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% @doc update the pull request information.
--spec update(binary(), [binary()]) -> ok.
-update(Url, Accounts) ->
-    gen_server:call(?MODULE, {update, Url, Accounts}).
+-spec update(binary(), binary(), [binary()]) -> ok.
+update(Title, Url, Accounts) ->
+    gen_server:call(?MODULE, {update, Title, Url, Accounts}).
 
 %% @doc list of pull request informations.
 -spec list() -> bbmuatache:data().
@@ -55,7 +62,8 @@ list() ->
     case dets:select(?MODULE, ets:fun2ms(fun(#?MODULE{login_id = Account, pr_url = Url}) -> {Url, Account} end)) of
         {error, Reason} -> error(Reason, []);
         Other           ->
-            #{"urls" => [#{"url" => Url,
+            #{"urls" => [#{"title" => title(Url),
+                           "url" => Url,
                            "users" => [#{"user" => SlackUser}
                                        || Account <- Accounts, is_binary(SlackUser = to_slack(Account))]}
                          || {Url, Accounts} <- compact(Other)]}
@@ -74,13 +82,14 @@ list(SlackUsers) ->
                              case lists:member(Account, Accounts) of
                                  true  -> [{Account, Url} | Acc];
                                  false -> Acc
-                             end
+                             end;
+                        (_, Acc) -> Acc
                      end, [], ?MODULE),
     case Ret of
         {error, Reason} -> error(Reason, [SlackUsers]);
         Other           ->
             #{"users" => [#{"user" => SlackUser,
-                            "urls" => [#{"url" => Url} || Url <- Urls]}
+                            "urls" => [#{"title" => title(Url), "url" => Url} || Url <- Urls]}
                           || {Account, Urls} <- compact(Other ++ Accounts), is_binary(SlackUser = to_slack(Account))],
               "unknowns" => [#{"user" => SlackUser} || SlackUser <- UnknownUsers]}
     end.
@@ -92,16 +101,30 @@ r_list(GithubUrls) ->
                              case lists:member(Url, GithubUrls) of
                                  true  -> [{Url, Account} | Acc];
                                  false -> Acc
-                             end
+                             end;
+                        (_, Acc) -> Acc
                      end, [], ?MODULE),
     case Ret of
         {error, Reason} -> error(Reason, [GithubUrls]);
         Other           ->
-            #{"urls" => [#{"url" => Url,
+            #{"urls" => [#{"title" => title(Url),
+                           "url" => Url,
                            "users" => [#{"user" => SlackUser}
                                        || Account <- Accounts, is_binary(SlackUser = to_slack(Account))]}
                          || {Url, Accounts} <- compact(Other)]}
     end.
+
+%% @doc return the title of pull request.
+-spec title(binary()) -> binary().
+title(Url) ->
+    case dets:lookup(?MODULE, Url) of
+        {error, Reason} ->
+            error(Reason, [Url]);             
+        [#pr_title{title = Title}] ->
+            Title;
+        _ ->
+            <<"">>
+    end.            
 
 %% @doc fetch urls from `bbmustache:data/0'
 -spec fetch_urls_recursive(map()) -> [Url :: binary()].
@@ -137,9 +160,14 @@ init(_) ->
     end.
 
 %% @private
-handle_call({update, Url, LoginIds}, _, State) ->
+handle_call({update, Title, Url, LoginIds}, _, State) ->
     ok = dets:match_delete(?MODULE, #?MODULE{pr_url = Url, _ = '_'}),
-    ok = ?IIF(LoginIds =:= [], ok, dets:insert(?MODULE, [#?MODULE{login_id = LoginId, pr_url = Url} || LoginId <- LoginIds])),
+    _  = dets:delete(?MODULE, Url),
+    _  = ?IIF(LoginIds =:= [], ok,
+              begin
+                  dets:insert(?MODULE, [#?MODULE{login_id = LoginId, pr_url = Url} || LoginId <- LoginIds]),
+                  dets:insert(?MODULE, [#pr_title{pr_url = Url, title = Title}])
+              end),
     {reply, ok, State};
 handle_call(_, _, State) ->
     {noreply, State}.

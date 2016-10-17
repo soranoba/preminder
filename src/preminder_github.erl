@@ -64,7 +64,9 @@ mail(LoginId) ->
     end.
 
 %% @doc get the pull request information.
--spec pr(binary(), binary(), binary()) -> {ok, Body :: binary(), open | closed | wip} | {error, Reason :: term()}.
+-spec pr(binary(), binary(), binary()) -> Result when
+      Result :: {ok, Title :: binary(), Body :: binary(), open | closed | wip} 
+              | {error, Reason :: term()}.
 pr(Owner, Repos, Number) ->
     Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/issues/", Number/binary>>),
               [{"token", token()}]),
@@ -72,7 +74,7 @@ pr(Owner, Repos, Number) ->
         {ok, #{<<"body">> := Body, <<"state">> := State, <<"title">> := Title, <<"labels">> := Labels}} ->
             IsWip = lists:any(fun(X) -> preminder_util:is_match(X, <<"(W|w)(I|i)(P|p)">>) end,
                               [Title | [LabelName || #{<<"name">> := LabelName} <- Labels]]),
-            {ok, Body, ?IIF(State =:= <<"open">>, ?IIF(IsWip, wip, open), closed)};
+            {ok, Title, Body, ?IIF(State =:= <<"open">>, ?IIF(IsWip, wip, open), closed)};
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
         {error, Reason} ->
