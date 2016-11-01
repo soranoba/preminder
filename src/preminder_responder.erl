@@ -166,7 +166,7 @@ task_github_url(GitHubUrl) ->
     [_, Host, Owner, Repos, _, Number] = binary:split(GitHubUrl, [<<"/">>, <<":">>], [global, trim_all]),
 
     case binary:match(preminder_github:endpoint(), Host) =/= nomatch andalso preminder_github:pr(Owner, Repos, Number) of
-        {ok, Body, open} ->
+        {ok, Title, Body, open} ->
             Accounts = [Account || [_, _, Account] <- matches(Body, <<"(-|\\*)\\s*\\[\\s\\]\\s@([^\\s\\r\\n]*)\\s*">>)],
             _ = ?NOT(lists:all(fun(Account) -> preminder_user:github_to_mail(Account) =/= error end, Accounts),
                      case preminder_github:fetch_mails(Owner, Repos, Number) of
@@ -177,9 +177,9 @@ task_github_url(GitHubUrl) ->
                              ok
                      end),
             _ = error_logger:info_msg("[recv github url] ~s -> ~p~n", [GitHubUrl, Accounts]),
-            preminder_pr:update(GitHubUrl, Accounts);
-        {ok, _, _} -> % not open.
-            preminder_pr:update(GitHubUrl, []);
+            preminder_pr:update(Title, GitHubUrl, Accounts);
+        {ok, Title, _, _} -> % not open.
+            preminder_pr:update(Title, GitHubUrl, []);
         _ ->
             ok
     end.
