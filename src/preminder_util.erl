@@ -12,6 +12,7 @@
 
 -export([
          request/1,
+         request/2,
          priv/1,
          uri_encode/1,
          get_env/1,
@@ -25,10 +26,15 @@
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @doc HTTP GET request that response is json.
+%% @equiv request(Url, [])
 -spec request(binary()) -> {ok, map() | list()} | {error, Reason :: term()}.
 request(Url) ->
-    case hackney:request(get, Url) of
+    request(Url, []).
+
+%% @doc HTTP GET request that response is json.
+-spec request(binary(), [{binary(), binary()}]) -> {ok, map() | list()} | {error, Reason :: term()}.
+request(Url, Headers) ->
+    case hackney:request(get, Url, Headers) of
         {error, Reason} -> {error, Reason};
         {ok, _, _, Ref} ->
             case hackney:body(Ref) of

@@ -53,8 +53,8 @@ url(GithubMethod, QueryParams) ->
 %% @doc get the mail.
 -spec mail(binary()) -> {ok, binary()} | {error, Reason :: term()}.
 mail(LoginId) ->
-    Url = url("users/" ++ binary_to_list(LoginId), [{"token", token()}]),
-    case preminder_util:request(Url) of
+    Url = url("users/" ++ binary_to_list(LoginId), []),
+    case preminder_util:request(Url, [authorization_header()]) of
         {ok, #{<<"email">> := Mail}} ->
             {ok, Mail};
         {ok, #{<<"message">> := Message}} ->
@@ -65,12 +65,11 @@ mail(LoginId) ->
 
 %% @doc get the pull request information.
 -spec pr(binary(), binary(), binary()) -> Result when
-      Result :: {ok, Title :: binary(), Body :: binary(), open | closed | wip} 
+      Result :: {ok, Title :: binary(), Body :: binary(), open | closed | wip}
               | {error, Reason :: term()}.
 pr(Owner, Repos, Number) ->
-    Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/issues/", Number/binary>>),
-              [{"token", token()}]),
-    case preminder_util:request(Url) of
+    Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/issues/", Number/binary>>), []),
+    case preminder_util:request(Url, [authorization_header()]) of
         {ok, #{<<"body">> := Body, <<"state">> := State, <<"title">> := Title, <<"labels">> := Labels}} ->
             IsWip = lists:any(fun(X) -> preminder_util:is_match(X, <<"(W|w)(I|i)(P|p)">>) end,
                               [Title | [LabelName || #{<<"name">> := LabelName} <- Labels]]),
@@ -86,7 +85,7 @@ pr(Owner, Repos, Number) ->
 pr_search(QueryBin) ->
     Q = ?IIF(QueryBin =:= <<>>, <<>>, <<"+", QueryBin/binary>>),
     Url = url("search/issues", [{"q", "is:open+is:pr" ++ binary_to_list(Q)}]),
-    case preminder_util:request(Url) of
+    case preminder_util:request(Url, [authorization_header()]) of
         {ok, #{<<"items">> := Items}} ->
             PullUrls = lists:map(fun(#{<<"html_url">> := PullUrl}) -> PullUrl end, Items),
             {ok, PullUrls};
@@ -100,8 +99,8 @@ pr_search(QueryBin) ->
 -spec fetch_mails(binary(), binary(), binary()) -> {ok, [{Mail :: binary(), LoginId :: binary()}]} | {error, Reason :: term()}.
 fetch_mails(Owner, Repos, Number) ->
     Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/pulls/", Number/binary, "/commits">>),
-              [{"token", token()}]),
-    case preminder_util:request(Url) of
+              []),
+    case preminder_util:request(Url, [authorization_header()]) of
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
         {ok, List} ->
@@ -113,3 +112,8 @@ fetch_mails(Owner, Repos, Number) ->
         {error, Reason} ->
             {error, Reason}
     end.
+
+%% @doc Return the Github Authorization Header.
+-spec authorization_header() -> {binary(), binary()}.
+authorization_header() ->
+    {<<"Authorization">>, <<"token ", (list_to_binary(token()))/binary>>}.
