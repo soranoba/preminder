@@ -2,6 +2,7 @@
 [{preminder,
  [{user_dets_path, "user.dets"},
   {pr_dets_path, "pr.dets"},
+  {setting_dets_path, "setting.dets"},
   {slack_token, "xoxb-XXXXXXXXXXXXXXXXXXXXXXXXXX"},
   {github_endpoint, "https://api.github.com"},
   {github_token, "XXXXXXXXXXXXXXXXXXXXXx"}

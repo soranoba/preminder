@@ -15,3 +15,6 @@
 
 -define(PR_DETS, pr_dets_path).
 -define(USER_DETS, user_dets_path).
+-define(SETTING_DETS, setting_dets_path).
+
+-define(WIP_KEY, <<"wip_key">>).

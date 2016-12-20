@@ -42,6 +42,7 @@ start_link() ->
 init(_) ->
     Children = [
                 ?CHILD(preminder_cache, []),
+                ?CHILD(preminder_setting, []),
                 ?CHILD(preminder_user, []),
                 ?CHILD(preminder_pr, []),
                 ?CHILD(preminder_ws, [])
