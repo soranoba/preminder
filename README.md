@@ -21,6 +21,7 @@ docker pull soranoba/preminder
 # run : Please use the -v option, if you want to have the data to the outside of the container.
 docker run -i -t -d --env USER_DETS_PATH=user.dets \
                     --env PR_DETS_PATH=pr.dets \
+                    --env SETTING_DETS_PATH=setting.dets \
                     --env SLACK_TOKEN=xoxb-XXXXXXXX-XXXXXXXXXXXXXXXX \
                     --env GITHUB_ENDPOINT=https://api.github.com \
                     --env GITHUB_TOKEN=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
@@ -42,13 +43,14 @@ docker attach ${NAME}
 
 ## Configuration
 
-|               |description|
-|:--------------|:----------|
-|USER_DETS_PATH |File to store the user information|
-|PR_DETS_PATH   |File to store the pull request information|
-|SLACK_TOKEN    |The token of slack. See also: [Bots](https://my.slack.com/services/new/bot)|
-|GITHUB_ENDPOINT|Api end point of Github (Enterprise). e.g. `https://api.github.com` |
-|GITHUB_TOKEN   |The token of Github (Enterprise). See also: [Personal Access Token](https://github.com/settings/tokens) |
+|                 |description|
+|:----------------|:----------|
+|USER_DETS_PATH   |File to store the user information|
+|PR_DETS_PATH     |File to store the pull request information|
+|SETTING_DETS_PATH|File to store the setting of preminder|
+|SLACK_TOKEN      |The token of slack. See also: [Bots](https://my.slack.com/services/new/bot)|
+|GITHUB_ENDPOINT  |Api end point of Github (Enterprise). e.g. `https://api.github.com` |
+|GITHUB_TOKEN     |The token of Github (Enterprise). See also: [Personal Access Token](https://github.com/settings/tokens) |
 
 ## Usage
 
