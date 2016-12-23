@@ -15,3 +15,11 @@ pray
 search <Query> (<Query> ...)
        Search on the queries in pull request of github.
        e.g. search author:<GithubName> erlang
+ignore list
+       Display a list of ignore keywords.
+       If PR included this keyword in tag and title, it exclude from list.
+       The keywords ignores case.
+ignore add <Keyword> (<Keyword> ...)
+       Add the ignore keywords.
+ignore remove <Keyword> (<Keyword> ...)
+       Remove the ignore keywords.

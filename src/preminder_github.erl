@@ -71,7 +71,12 @@ pr(Owner, Repos, Number) ->
     Url = url(binary_to_list(<<"repos/", Owner/binary, "/", Repos/binary, "/issues/", Number/binary>>), []),
     case preminder_util:request(Url, [authorization_header()]) of
         {ok, #{<<"body">> := Body, <<"state">> := State, <<"title">> := Title, <<"labels">> := Labels}} ->
-            IsWip = lists:any(fun(X) -> preminder_util:is_match(X, <<"(W|w)(I|i)(P|p)">>) end,
+            WipWords = preminder_setting:lookup(?WIP_KEY),
+            IsWip = lists:any(fun(X) ->
+                                      lists:any(fun(WipWord) ->
+                                                        preminder_util:is_match(X, WipWord, [caseless])
+                                                end, WipWords)
+                              end,
                               [Title | [LabelName || #{<<"name">> := LabelName} <- Labels]]),
             {ok, Title, Body, ?IIF(State =:= <<"open">>, ?IIF(IsWip, wip, open), closed)};
         {ok, #{<<"message">> := Message}} ->

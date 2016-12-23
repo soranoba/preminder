@@ -19,6 +19,9 @@
          task_help/1,
          task_remind/2,
          task_search/2,
+         task_ignore_list/1,
+         task_ignore_add/2,
+         task_ignore_remove/2,
          task_pray/2
         ]).
 
@@ -76,17 +79,21 @@ do(Msg) ->
 do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
 do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel, <<"user">> := User}) ->
-    Tasks0 = [
-              {{mention, <<"remind.*">>},                           {?MODULE, task_remind,     [Text, Channel]}},
-              {<<"https?://[^\\s]*(pull|issue)/[0-9]*">>,           {?MODULE, task_github_url, ['$$']}},
-              {{mention, <<"list(.*)$">>},                          {?MODULE, task_list,       ['$1', Channel]}},
-              {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,   ['$1', '$2', Channel]}},
-              {{mention, <<"user\\s+([^\\s]*)$">>},                 {?MODULE, task_user,       ['$1', Channel]}},
-              {{mention, <<"help.*$">>},                            {?MODULE, task_help,       [Channel]}},
-              {{mention, <<"search\\s(.*)$">>},                     {?MODULE, task_search,     ['$1', Channel]}},
-              {{mention, <<":?pray:?.*$">>},                        {?MODULE, task_pray,       [User, Channel]}},
-              {{mention, <<"^.*$">>},                               {?MODULE, task_help,       [Channel]}}
-             ],
+    Tasks0 =
+        [
+         {{mention, <<"remind.*">>},                           {?MODULE, task_remind,        [Text, Channel]}},
+         {<<"https?://[^\\s]*(pull|issue)/[0-9]*">>,           {?MODULE, task_github_url,    ['$$']}},
+         {{mention, <<"ignore\\s+list">>},                     {?MODULE, task_ignore_list,   [Channel]}},
+         {{mention, <<"ignore\\s+add\\s+(.*)$">>},             {?MODULE, task_ignore_add,    ['$1', Channel]}},
+         {{mention, <<"ignore\\s+remove\\s+(.*)$">>},          {?MODULE, task_ignore_remove, ['$1', Channel]}},
+         {{mention, <<"list(.*)$">>},                          {?MODULE, task_list,          ['$1', Channel]}},
+         {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,      ['$1', '$2', Channel]}},
+         {{mention, <<"user\\s+([^\\s]*)$">>},                 {?MODULE, task_user,          ['$1', Channel]}},
+         {{mention, <<"help.*$">>},                            {?MODULE, task_help,          [Channel]}},
+         {{mention, <<"search\\s(.*)$">>},                     {?MODULE, task_search,        ['$1', Channel]}},
+         {{mention, <<":?pray:?.*$">>},                        {?MODULE, task_pray,          [User, Channel]}},
+         {{mention, <<"^.*$">>},                               {?MODULE, task_help,          [Channel]}}
+        ],
     ?NOT(User =:= preminder_slack:slack_id(),
          begin
              Tasks = choose_tasks(Text, Tasks0),
@@ -252,6 +259,26 @@ task_search(Query, Channel) ->
         {error, Reason} ->
             preminder_slack:post(Channel, iolist_to_binary(io_lib:format("~p", [Reason])))
     end.
+
+%% @doc task for ignore list command.
+-spec task_ignore_list(binary()) -> ok.
+task_ignore_list(Channel) ->
+    Values = preminder_setting:lookup(?WIP_KEY),
+    preminder_slack:post(Channel, iolist_to_binary([ [V, " "] || V <- Values])).
+
+%% @doc task for ignore add command.
+-spec task_ignore_add(binary(), binary()) -> ok.
+task_ignore_add(Query, Channel) ->
+    Qs = binary:split(Query, <<" ">>, [global, trim_all]),
+    ok = preminder_setting:append_values(?WIP_KEY, Qs),
+    task_ignore_list(Channel).
+
+%% @doc task for ignore remove command.
+-spec task_ignore_remove(binary(), binary()) -> ok.
+task_ignore_remove(Query, Channel) ->
+    Qs = binary:split(Query, <<" ">>, [global, trim_all]),
+    ok = preminder_setting:remove_values(?WIP_KEY, Qs),
+    task_ignore_list(Channel).
 
 %% @doc task for pray command.
 -spec task_pray(binary(), binary()) -> term().
