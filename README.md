@@ -1,6 +1,7 @@
 preminder
 =============
 [![Build Status](https://travis-ci.org/soranoba/preminder.svg?branch=master)](https://travis-ci.org/soranoba/preminder)
+[![](https://badge.imagelayers.io/soranoba/preminder:latest.svg)](https://imagelayers.io/?images=soranoba/preminder:latest 'Get your own badge on imagelayers.io')
 
 Review reminder of pull request for Github and Slack.
 
@@ -56,6 +57,8 @@ docker attach ${NAME}
 
 [![https://gyazo.com/36cb4838496c036934fcc6d9702e66d8](https://i.gyazo.com/36cb4838496c036934fcc6d9702e66d8.png)](https://gyazo.com/36cb4838496c036934fcc6d9702e66d8)
 
+For the latest help, please refer to [here](priv/help.mustache).
+
 ### User Registration
 
 * It **MUST** be the same as the your email address that is using on Slack and Github.
@@ -65,7 +68,7 @@ docker attach ${NAME}
 More informations.
 
 * It collect the id, name and email from Slack, when Slack User change the status to active from away.
-* It collect the account and email, when Pull Request URL is pasted on Slack channel that is joined preminder.
+* It collect the account and email, when Pull Request URL is posted on Slack channel that is joined preminder.
 
 ### Pull Request
 
