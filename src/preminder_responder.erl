@@ -78,7 +78,8 @@ do(Msg) ->
 -spec do_1(map()) -> ok.
 do_1(#{<<"attachments">> := [#{<<"pretext">> := PreText}]} = In) ->
     do_1(In#{<<"text">> => PreText, <<"attachments">> => nil});
-do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel, <<"user">> := User}) ->
+do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel} = In) ->
+    User = maps:get(<<"user">>, In, <<>>),
     Tasks0 =
         [
          {{mention, <<"remind.*">>},                           {?MODULE, task_remind,        [Text, Channel]}},
@@ -105,7 +106,6 @@ do_1(#{<<"type">> := <<"presence_change">>, <<"presence">> := <<"active">>, <<"u
     ok;
 do_1(_) ->
     ok.
-
 
 %% @doc choose the `[task_in()]' and convert the arguments if needed.
 -spec choose_tasks(binary(), [{pattern(), task_in()}]) -> [task()].
@@ -282,6 +282,8 @@ task_ignore_remove(Query, Channel) ->
 
 %% @doc task for pray command.
 -spec task_pray(binary(), binary()) -> term().
+task_pray(<<>>, _) ->
+    ok;
 task_pray(User, Channel) ->
     case preminder_user:slack_id_to_github(User) of
         {ok, GithubUser} ->
