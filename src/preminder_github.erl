@@ -109,10 +109,12 @@ fetch_mails(Owner, Repos, Number) ->
         {ok, #{<<"message">> := Message}} ->
             {error, Message};
         {ok, List} ->
-            Ret = lists:map(fun(#{<<"commit">> := #{<<"author">> := #{<<"email">> := Mail}},
-                                  <<"author">> := #{<<"login">> := LoginId}}) ->
-                                    {Mail, LoginId}
-                            end, List),
+            Ret = lists:filtermap(fun(#{<<"commit">> := #{<<"author">> := #{<<"email">> := Mail}},
+                                        <<"author">> := #{<<"login">> := LoginId}}) ->
+                                          {true, {Mail, LoginId}};
+                                     (_) ->
+                                          false
+                                  end, List),
             {ok, lists:ukeysort(1, Ret)};
         {error, Reason} ->
             {error, Reason}
