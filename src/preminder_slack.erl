@@ -63,11 +63,13 @@ user_info(SlackId) ->
 %% @doc post the message.
 -spec post(binary(), binary()) -> ok | {error, Reason :: term()}.
 post(ChannelId, Msg) ->
-    Url = url("chat.postMessage", [{"token", token()},
-                                   {"channel", binary_to_list(ChannelId)},
-                                   {"text", binary_to_list(Msg)},
-                                   {"as_user", "true"}]),
-    case preminder_util:request(Url) of
+    Headers = [{<<"Content-Type">>, <<"application/json">>},
+               {<<"Authorization">>, <<"Bearer ", (list_to_binary(token()))/binary>>}],
+    RequestBody = jsone:encode(#{<<"token">> => list_to_binary(token()),
+                                 <<"channel">> => ChannelId,
+                                 <<"text">> => Msg,
+                                 <<"as_user">> => true}),
+    case preminder_util:request(url("chat.postMessage", []), Headers, RequestBody) of
         {ok, #{<<"error">> := Reason}} ->
             {error, Reason};
         {ok, _} ->
