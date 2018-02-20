@@ -77,7 +77,7 @@ pr(Owner, Repos, Number) ->
                                                         preminder_util:is_match(X, WipWord, [caseless])
                                                 end, WipWords)
                               end,
-                              [Title | [LabelName || #{<<"name">> := LabelName} <- Labels]]),
+                              [LabelName || #{<<"name">> := LabelName} <- Labels]),
             {ok, Title, Body, ?IIF(State =:= <<"open">>, ?IIF(IsWip, wip, open), closed)};
         {ok, #{<<"message">> := Message}} ->
             {error, Message};

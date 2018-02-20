@@ -13,6 +13,7 @@
 -export([
          request/1,
          request/2,
+         request/3,
          priv/1,
          uri_encode/1,
          get_env/1,
@@ -34,14 +35,12 @@ request(Url) ->
 %% @doc HTTP GET request that response is json.
 -spec request(binary(), [{binary(), binary()}]) -> {ok, map() | list()} | {error, Reason :: term()}.
 request(Url, Headers) ->
-    case hackney:request(get, Url, Headers) of
-        {error, Reason} -> {error, Reason};
-        {ok, _, _, Ref} ->
-            case hackney:body(Ref) of
-                {error, Reason} -> {error, Reason};
-                {ok, Body}      -> {ok, jsone:decode(Body)}
-            end
-    end.
+    request(get, Url, Headers, <<>>).
+
+%% @doc HTTP POST request that response is json.
+-spec request(binary(), [{binary(), binary()}], binary()) -> {ok, map() | list()} | {error, Reason :: term()}.
+request(Url, Headers, Body) ->
+    request(post, Url, Headers, Body).
 
 %% @doc return the priv path.
 -spec priv(file:filename()) -> file:filename().
@@ -128,3 +127,19 @@ pforeach_impl(_, [], Refs) ->
 pforeach_impl(Fun, [X | Xs], Refs) ->
     {_, Ref} = spawn_opt(fun() -> Fun(X) end, [link, monitor]),
     pforeach_impl(Fun, Xs, [Ref | Refs]).
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Internal Functions
+%%----------------------------------------------------------------------------------------------------------------------
+
+%% @doc HTTP request that response is json.
+-spec request(atom(), binary(), [{binary(), binary()}], binary()) -> {ok, map() | list()} | {error, Reason :: term()}.
+request(Method, Url, Headers, Body) ->
+    case hackney:request(Method, Url, Headers, Body) of
+        {error, Reason} -> {error, Reason};
+        {ok, _, _, Ref} ->
+            case hackney:body(Ref) of
+                {error, Reason}    -> {error, Reason};
+                {ok, ResponseBody} -> {ok, jsone:decode(ResponseBody)}
+            end
+    end.
