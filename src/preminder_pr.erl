@@ -119,12 +119,12 @@ r_list(GithubUrls) ->
 title(Url) ->
     case dets:lookup(?MODULE, Url) of
         {error, Reason} ->
-            error(Reason, [Url]);             
+            error(Reason, [Url]);
         [#pr_title{title = Title}] ->
             Title;
         _ ->
             <<"">>
-    end.            
+    end.
 
 %% @doc fetch urls from `bbmustache:data/0'
 -spec fetch_urls_recursive(map()) -> [Url :: binary()].
@@ -223,17 +223,12 @@ to_slack(LoginId) ->
 
 %% @doc `<@SlackId>' or slack name to login id.
 -spec from_slack(binary()) -> binary() | false.
-from_slack(<<"<@", Rest/binary>>) ->
-    case binary:split(Rest, [<<"|">>, <<">">>], [global, trim_all]) of
-        []            -> false;
-        [SlackId | _] ->
+from_slack(SlackNameOrMention) ->
+    case preminder_slack:to_slack_id(SlackNameOrMention) of
+        false   -> false;
+        SlackId ->
             case preminder_user:slack_id_to_github(SlackId) of
                 {ok, LoginId} -> LoginId;
                 _             -> false
             end
-    end;
-from_slack(SlackName) ->
-    case preminder_user:slack_name_to_github(SlackName) of
-        {ok, LoginId} -> LoginId;
-        _             -> false
     end.

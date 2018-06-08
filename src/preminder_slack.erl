@@ -14,6 +14,7 @@
          user_info/1,
          post/2,
          slack_id/0,
+         to_slack_id/1,
          rtm_start/0
         ]).
 
@@ -85,6 +86,19 @@ slack_id() ->
         undefined -> error(rtm_not_started, []);
         SlackId   -> SlackId
     end.
+
+%% @doc convert slack id from mention or name of slack.
+-spec to_slack_id(binary()) -> binary() | false.
+to_slack_id(<<"<@", Rest/binary>>) ->
+    case binary:split(Rest, [<<"|">>, <<">">>], [global, trim_all]) of
+        []            -> false;
+        [SlackId | _] -> SlackId
+    end;
+to_slack_id(SlackName) ->
+    case preminder_user:slack_name_to_slack_id(SlackName) of
+        {ok, SlackId} -> SlackId;
+        _             -> false
+end.
 
 %% @doc start the rtm.
 -spec rtm_start() -> {ok, Url :: binary()} | {error, Reason :: term()}.

@@ -16,6 +16,7 @@
          task_list/2,
          task_register/3,
          task_user/2,
+         task_user_by_slack_id/2,
          task_help/1,
          task_remind/2,
          task_search/2,
@@ -90,6 +91,7 @@ do_1(#{<<"type">> := <<"message">>, <<"text">> := Text, <<"channel">> := Channel
          {{mention, <<"list(.*)$">>},                          {?MODULE, task_list,          ['$1', Channel]}},
          {{mention, <<"register\\s+([^\\s]*)\\s+([^\\s]*)">>}, {?MODULE, task_register,      ['$1', '$2', Channel]}},
          {{mention, <<"user\\s+([^\\s]*)$">>},                 {?MODULE, task_user,          ['$1', Channel]}},
+         {{mention, <<"user\\s*$">>},                          {?MODULE, task_user_by_slack_id, [User, Channel]}},
          {{mention, <<"help.*$">>},                            {?MODULE, task_help,          [Channel]}},
          {{mention, <<"search\\s(.*)$">>},                     {?MODULE, task_search,        ['$1', Channel]}},
          {{mention, <<":?pray:?.*$">>},                        {?MODULE, task_pray,          [User, Channel]}},
@@ -216,28 +218,42 @@ task_list(Text, Channel) ->
 %%
 %% NOTE: register the github account and slack account pair.
 -spec task_register(binary(), binary(), binary()) -> term().
-task_register(SlackUser, GithubUser, Channel) ->
-    case preminder_user:slack_name_to_mail(SlackUser) of
+task_register(SlackNameOrMention, GithubUser, Channel) ->
+    case (SlackId = preminder_slack:to_slack_id(SlackNameOrMention)) =/= false
+        andalso preminder_user:slack_id_to_mail(SlackId) of
         {ok, Mail} ->
             ok  = preminder_user:insert_github([{Mail, GithubUser}]),
-            task_user(SlackUser, Channel);
+            task_user_by_slack_id(SlackId, Channel);
         error ->
             preminder_slack:post(Channel,
-                                 iolist_to_binary(["[ERROR] ", SlackUser, " isn't register in databases..."]))
+                                 iolist_to_binary(["[ERROR] ", SlackNameOrMention, " isn't register in databases..."]))
     end.
 
 %% @doc task for user command.
 %%
 %% NOTE: show the user information.
 -spec task_user(binary(), binary()) -> term().
-task_user(SlackUser, Channel) ->
-    case preminder_user:slack_name_to_mail(SlackUser) of
+task_user(SlackNameOrMention, Channel) ->
+    case preminder_slack:to_slack_id(SlackNameOrMention) of
+        false ->
+            preminder_slack:post(Channel,
+                                 iolist_to_binary(["[ERROR]", SlackNameOrMention, " isn't register in databases..."]));
+        SlackId ->
+            task_user_by_slack_id(SlackId, Channel)
+    end.
+
+%% @doc task for user command by slack_id.
+%%
+%% NOTE: show the user information.
+-spec task_user_by_slack_id(binary(), binary()) -> term().
+task_user_by_slack_id(SlackId, Channel) ->
+    case preminder_user:slack_id_to_mail(SlackId) of
         {ok, Mail} ->
             Ret = preminder_user:lookup(Mail),
             preminder_slack:post(Channel, bbmustache:compile(bbmustache:parse_file(?PRIV("user.mustache")), Ret));
         error ->
             preminder_slack:post(Channel,
-                                 iolist_to_binary(["[ERROR]", SlackUser, " isn't register in databases..."]))
+                                 iolist_to_binary(["[ERROR]", SlackId, " isn't register in databases..."]))
     end.
 
 %% @doc task for help command.
