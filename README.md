@@ -16,8 +16,10 @@ There provides a way using the docker.
 The usual way, please refer to [Makefile](Makefile).
 
 ```bash
-# pull
+# pull (from dockerhub)
 docker pull soranoba/preminder
+# pull (from github)
+docker pull docker.pkg.github.com/soranoba/preminder/preminder
 
 # run : Please use the -v option, if you want to have the data to the outside of the container.
 docker run -i -t -d --env USER_DETS_PATH=user.dets \
